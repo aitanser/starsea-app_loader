@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes, viewport-fit=cover" />
+    <title>应用加载器</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <style>
+        /* ==========================
+           设计令牌 (深色/浅色) —— 与原来一致
+           ========================== */
+        :root {
+            --bg-primary: #1a0f08;
+            --bg-secondary: #2a1f18;
+            --bg-panel: rgba(30, 20, 15, 0.92);
+            --bg-card: rgba(255, 255, 255, 0.04);
+            --text-primary: #f5e6d3;
+            --text-secondary: #d0c0b0;
+            --text-muted: #a09080;
+            --text-main: #f5e6d3;
+            --text-sub: #d0c0b0;
+            --border-light: rgba(255, 255, 255, 0.06);
+            --shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+            --shadow-panel: 0 8px 30px rgba(0, 0, 0, 0.5);
+            --accent-primary: #c8983a;
+            --accent-secondary: #8fbf6a;
+            --accent-gradient: linear-gradient(90deg, #f4c76a, #e89840);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --radius-full: 30px;
+            --font: 'Noto Sans JP', 'Segoe UI', 'PingFang SC', 'Helvetica Neue', sans-serif;
+            --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-smooth: 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+            --touch-target: 44px;
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-left: env(safe-area-inset-left, 0px);
+            --safe-right: env(safe-area-inset-right, 0px);
+        }
+        [data-theme="light"] {
+            --bg-primary: #f5f0e8;
+            --bg-secondary: #e8e0d6;
+            --bg-panel: rgba(255, 252, 248, 0.95);
+            --bg-card: rgba(0, 0, 0, 0.04);
+            --text-primary: #2a1f18;
+            --text-secondary: #4a3728;
+            --text-muted: #7a6b5d;
+            --text-main: #4a3728;
+            --text-sub: #7a6b5d;
+            --border-light: rgba(0, 0, 0, 0.06);
+            --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            --shadow-panel: 0 8px 30px rgba(0, 0, 0, 0.12);
+        }
+        [data-theme-color="warm"] { --accent-primary: #c8983a; --accent-secondary: #8fbf6a; --accent-gradient: linear-gradient(90deg, #f4c76a, #e89840); }
+        [data-theme-color="mint"] { --accent-primary: #4dab9e; --accent-secondary: #6abf8a; --accent-gradient: linear-gradient(90deg, #6abf8a, #4dab9e); }
+        [data-theme-color="indigo"] { --accent-primary: #7c8fc0; --accent-secondary: #a8b8d8; --accent-gradient: linear-gradient(90deg, #a8b8d8, #7c8fc0); }
+        [data-theme-color="rose"] { --accent-primary: #d4878a; --accent-secondary: #e8b0b2; --accent-gradient: linear-gradient(90deg, #e8b0b2, #d4878a); }
+
+        *,
+        *::before,
+        *::after { margin:0; padding:0; box-sizing:border-box; }
+        html, body { height:100%; width:100%; min-height:100dvh; overflow:hidden; }
+        body { font-family:var(--font); background:var(--bg-secondary); display:flex; flex-direction:column; padding:0; margin:0; transition:background var(--transition), color var(--transition); -webkit-font-smoothing:antialiased; overscroll-behavior:none; }
+        .app-wrapper { position:relative; width:100%; height:100%; min-height:100dvh; background:var(--bg-primary); padding:var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left); display:flex; flex-direction:column; overflow:hidden; transition:background var(--transition); }
+
+        #loading-screen { position:absolute; inset:0; z-index:200; background:var(--bg-primary); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px; gap:8px; transition:opacity 0.6s ease, visibility 0.6s ease, background var(--transition); }
+        #loading-screen.hidden { opacity:0; visibility:hidden; pointer-events:none; }
+        .loading-title { font-size:clamp(28px,8vw,48px); font-weight:700; color:var(--text-primary); letter-spacing:6px; }
+        .loading-sub { font-size:clamp(10px,2.5vw,14px); color:var(--text-muted); letter-spacing:8px; margin-top:-2px; margin-bottom:18px; }
+        .progress-track { width:min(200px,60vw); height:6px; background:rgba(255,255,255,0.08); border-radius:4px; overflow:hidden; box-shadow:inset 0 1px 2px rgba(0,0,0,0.1); }
+        .progress-fill { height:100%; width:0%; background:var(--accent-gradient); border-radius:4px; transition:width 0.3s ease, background 0.3s ease; will-change:width; }
+        .progress-text { margin-top:10px; font-size:clamp(12px,3vw,16px); color:var(--text-muted); font-weight:700; letter-spacing:2px; }
+        .loading-deco { display:flex; gap:16px; margin-top:18px; color:var(--text-muted); animation:pulse-deco 2s ease-in-out infinite; }
+        .loading-deco i { opacity:0.4; font-size:clamp(12px,3vw,16px); }
+        @keyframes pulse-deco { 0%,100%{opacity:0.3;transform:scale(1);} 50%{opacity:0.8;transform:scale(1.08);} }
+
+        .ui-stage { position:relative; flex:1; display:flex; flex-direction:column; padding:clamp(6px,2vw,16px); opacity:0; transition:opacity 0.7s ease 0.25s; min-height:0; }
+        .ui-stage.visible { opacity:1; }
+        .main-wrap { flex:1; display:flex; flex-direction:column; min-height:0; order:0; }
+
+        #top-bar, #tool-bar { background:var(--bg-panel); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); border:1px solid var(--border-light); border-radius:var(--radius); box-shadow:var(--shadow); transition:background var(--transition), border var(--transition); }
+        #top-bar { height:clamp(40px,10vw,58px); min-height:var(--touch-target); display:flex; align-items:center; padding:0 clamp(8px,2vw,20px); gap:clamp(4px,1.5vw,10px); flex-shrink:0; margin-bottom:clamp(6px,1.5vw,10px); flex-wrap:wrap; }
+        #tool-bar { display:flex; flex-direction:row; gap:clamp(2px,0.8vw,6px); padding:clamp(2px,0.5vw,6px) clamp(4px,1vw,10px); flex-shrink:0; margin-top:clamp(6px,1.5vw,10px); order:1; height:clamp(48px,12vw,68px); min-height:var(--touch-target); }
+
+        .content-area { flex:1; display:flex; flex-direction:column; gap:clamp(6px,1.5vw,10px); padding:clamp(2px,0.5vw,6px) 0; min-height:0; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
+        .content-area::-webkit-scrollbar { width:3px; }
+        .content-area::-webkit-scrollbar-thumb { background:rgba(0,0,0,0.12); border-radius:4px; }
+
+        .content-panel { display:flex; flex-direction:column; gap:clamp(6px,1.5vw,10px); animation:fadeUp 0.35s ease; }
+        .content-panel.hidden { display:none; }
+        @keyframes fadeUp { 0%{opacity:0;transform:translateY(10px);} 100%{opacity:1;transform:translateY(0);} }
+
+        .content-card { background:var(--bg-card); border-radius:calc(var(--radius) - 2px); padding:clamp(12px,3vw,20px) clamp(12px,3vw,18px); border:1px solid var(--border-light); color:var(--text-secondary); font-size:clamp(12px,3vw,14px); line-height:1.6; backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px); }
+        .content-card .title { font-weight:700; color:var(--text-primary); margin-bottom:4px; font-size:clamp(13px,3.2vw,16px); display:flex; align-items:center; gap:6px; }
+        .content-card .title i { color:var(--accent-primary); font-size:clamp(14px,3.5vw,18px); }
+
+        .app-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:clamp(6px,1.5vw,12px); margin-top:6px; }
+
+        /* ========== 卡片样式（修复预览图溢出和点击） ========== */
+        .app-card {
+            background:rgba(255,255,255,0.04);
+            border-radius:var(--radius-sm);
+            padding:clamp(10px,2.5vw,16px);
+            text-align:center;
+            cursor:pointer;
+            border:1px solid transparent;
+            touch-action:manipulation;
+            min-height:var(--touch-target);
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            justify-content:center;
+            gap:2px;
+            -webkit-tap-highlight-color:transparent;
+            transition:all 0.15s ease;
+            color:var(--text-secondary);
+            position:relative;
+            overflow:visible;   /* 允许预览图溢出 */
+        }
+        .app-card:active { transform:scale(0.94); background:rgba(255,255,255,0.10); border-color:var(--border-light); }
+        @media (hover: hover) { .app-card:hover { background:rgba(255,255,255,0.08); border-color:var(--border-light); transform:translateY(-2px); z-index:100; } }
+        .app-card i { display:block; font-size:clamp(24px,5vw,32px); margin-bottom:2px; color:var(--accent-secondary); }
+        .app-card .app-name { font-weight:700; font-size:clamp(12px,2.8vw,14px); }
+        .app-card .app-desc { font-size:clamp(10px,2.2vw,12px); color:var(--text-muted); }
+        .app-card .app-badge { font-size:clamp(8px,1.8vw,10px); background:var(--accent-primary); color:#fff; padding:0 8px; border-radius:10px; margin-top:2px; display:inline-block; }
+        .app-card.disabled { opacity:0.5; cursor:not-allowed; }
+        .app-card .favorite-star { position:absolute; top:6px; right:8px; color:var(--text-muted); font-size:clamp(12px,2.8vw,14px); cursor:pointer; background:none; border:none; }
+        .app-card .favorite-star.active { color:#f59e0b; }
+        .app-card .version-tag { position:absolute; top:6px; left:8px; font-size:clamp(8px,1.8vw,10px); color:var(--text-muted); background:rgba(0,0,0,0.3); padding:0 6px; border-radius:4px; }
+        .app-card .type-tag {
+            position:absolute;
+            bottom:6px;
+            right:6px;
+            font-size:clamp(7px,1.6vw,9px);
+            background:rgba(0,0,0,0.15);
+            padding:0 4px;
+            border-radius:3px;
+            color:var(--text-muted);
+            text-transform:uppercase;
+            letter-spacing:0.5px;
+        }
+
+        /* ========== 预览图样式（修复遮挡） ========== */
+        .screenshot-preview {
+            position: absolute;
+            bottom: calc(100% + 12px);
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            background: var(--bg-panel);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 6px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+            z-index: 999;
+            min-width: 200px;
+            min-height: 150px;
+            pointer-events: none;   /* 让点击穿透 */
+        }
+        .screenshot-preview img {
+            max-width: 100%;
+            max-height: 150px;
+            display: block;
+            border-radius: 4px;
+        }
+        .screenshot-preview .screenshot-fallback {
+            display:none;
+            align-items:center;
+            justify-content:center;
+            width:200px;
+            height:150px;
+            color:var(--text-muted);
+            font-size:14px;
+            background:var(--bg-secondary);
+            border-radius:4px;
+            flex-direction:column;
+            gap:4px;
+        }
+
+        .star-rating { display:flex; gap:2px; justify-content:center; margin:4px 0; }
+        .star-rating .star { font-size:clamp(14px,3vw,18px); color:var(--text-muted); cursor:pointer; transition:color 0.15s; background:none; border:none; padding:0 2px; }
+        .star-rating .star.active { color:#f59e0b; }
+        .star-rating .star:hover { color:#f59e0b; }
+        .avg-rating { font-size:clamp(10px,2.2vw,12px); color:var(--text-muted); }
+
+        .action-tags { display:flex; gap:clamp(6px,1.5vw,10px); flex-wrap:wrap; margin-top:4px; }
+        .action-tag { background:rgba(255,255,255,0.05); padding:clamp(4px,1vw,8px) clamp(12px,3vw,18px); border-radius:var(--radius-full); font-size:clamp(11px,2.8vw,14px); cursor:pointer; border:1px solid transparent; user-select:none; color:var(--text-secondary); touch-action:manipulation; min-height:var(--touch-target); display:inline-flex; align-items:center; gap:4px; -webkit-tap-highlight-color:transparent; transition:all 0.15s ease; }
+        .action-tag:active { transform:scale(0.94); background:rgba(255,255,255,0.14); border-color:var(--border-light); }
+        @media (hover: hover) { .action-tag:hover { background:rgba(255,255,255,0.12); border-color:var(--border-light); } }
+        .action-tag i { font-size:clamp(10px,2.5vw,13px); color:var(--accent-primary); }
+
+        .tool-btn { flex:1; border:none; background:transparent; border-radius:var(--radius-sm); cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; font-family:var(--font); font-size:clamp(7px,1.8vw,11px); color:var(--text-sub); gap:1px; transition:all 0.15s ease; padding:clamp(2px,0.5vw,6px) 0; position:relative; user-select:none; touch-action:manipulation; min-height:var(--touch-target); -webkit-tap-highlight-color:transparent; }
+        .tool-btn i { font-size:clamp(16px,4.5vw,24px); color:var(--text-muted); transition:color 0.2s, transform 0.15s; }
+        .tool-btn:active { transform:scale(0.92); }
+        .tool-btn:active i { transform:scale(0.9); }
+        .tool-btn.active { background:rgba(140,190,100,0.18); color:var(--accent-secondary); font-weight:700; box-shadow:inset 0 0 0 2px var(--accent-secondary); }
+        .tool-btn.active i { color:var(--accent-secondary); }
+        .tool-btn .badge { position:absolute; top:clamp(-2px,-0.3vw,0px); right:clamp(-2px,-0.3vw,0px); background:#e07040; color:#fff; font-size:clamp(7px,1.8vw,10px); border-radius:50%; min-width:16px; height:16px; display:flex; align-items:center; justify-content:center; font-weight:700; padding:0 4px; box-shadow:0 2px 6px rgba(0,0,0,0.25); animation:badge-pulse 2s ease-in-out infinite; }
+        @keyframes badge-pulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.08);} }
+
+        .top-info { display:flex; align-items:center; gap:4px; font-size:clamp(11px,2.8vw,14px); font-weight:700; white-space:nowrap; color:var(--text-sub); }
+        .top-info .icon { font-size:clamp(12px,3vw,15px); color:var(--text-muted); }
+        .top-info .val { min-width:28px; color:var(--accent-primary); }
+        #status-icon { font-size:clamp(9px,2.2vw,12px); color:var(--accent-secondary); }
+        #status-text { font-size:clamp(10px,2.5vw,13px); color:var(--text-sub); }
+        #date-text { font-size:clamp(10px,2.5vw,13px); color:var(--text-sub); font-weight:700; cursor:pointer; padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px); border-radius:var(--radius-sm); transition:background 0.2s, transform 0.15s; touch-action:manipulation; min-height:var(--touch-target); display:flex; align-items:center; }
+        #date-text:hover { background:rgba(0,0,0,0.04); }
+        #date-text:active { transform:scale(0.94); }
+
+        .search-box { display:flex; align-items:center; background:rgba(255,255,255,0.05); border-radius:var(--radius-full); padding:0 10px; border:1px solid var(--border-light); flex:1; min-width:120px; }
+        .search-box input { background:transparent; border:none; padding:clamp(4px,1vw,8px) 0; color:var(--text-primary); width:100%; outline:none; font-size:clamp(12px,2.8vw,14px); min-height:var(--touch-target); }
+        .search-box input::placeholder { color:var(--text-muted); }
+        .search-box i { color:var(--text-muted); font-size:clamp(14px,3vw,16px); margin-right:4px; }
+
+        #status-indicator { position:absolute; top:clamp(48px,12vw,72px); right:clamp(12px,3vw,20px); font-size:clamp(16px,4vw,24px); z-index:5; pointer-events:none; color:var(--text-muted); text-shadow:0 2px 8px rgba(0,0,0,0.15); animation:float-indicator 4s ease-in-out infinite; opacity:0.6; }
+        @keyframes float-indicator { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-5px) scale(1.06);} }
+
+        #panel-backdrop { position:absolute; inset:0; z-index:15; background:rgba(0,0,0,0.4); opacity:0; pointer-events:none; transition:opacity var(--transition); backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px); }
+        #panel-backdrop.open { opacity:1; pointer-events:auto; }
+
+        .panel-overlay { position:absolute; z-index:20; background:var(--bg-panel); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid var(--border-light); box-shadow:var(--shadow-panel); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; transition:transform 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease; opacity:0; pointer-events:none; top:auto; bottom:0; left:0; right:0; height:60vh; max-height:80vh; border-radius:16px 16px 0 0; transform:translateY(100%); padding:20px 16px 24px; }
+        .panel-overlay.open { opacity:1; pointer-events:auto; transform:translateY(0); }
+        .panel-close-btn { position:absolute; top:12px; right:16px; font-size:20px; color:var(--text-muted); cursor:pointer; padding:8px; border-radius:50%; z-index:25; background:rgba(0,0,0,0.04); width:36px; height:36px; display:flex; align-items:center; justify-content:center; transition:background 0.2s, transform 0.15s; }
+        .panel-close-btn:active { transform:scale(0.92); background:rgba(0,0,0,0.08); }
+        @media (hover: hover) { .panel-close-btn:hover { background:rgba(0,0,0,0.08); color:var(--text-primary); } }
+        .panel-title { font-size:clamp(16px,3.8vw,20px); font-weight:700; color:var(--text-main); margin-bottom:clamp(12px,2.5vw,18px); text-align:center; letter-spacing:2px; padding-right:40px; }
+        .panel-title i { margin-right:6px; color:var(--accent-primary); }
+
+        .grid-4 { display:grid; grid-template-columns:repeat(4,1fr); gap:clamp(6px,1.5vw,12px); }
+        .inv-slot { aspect-ratio:1; background:rgba(0,0,0,0.04); border-radius:var(--radius-sm); border:2px dashed rgba(0,0,0,0.06); display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; position:relative; transition:all 0.15s ease; color:var(--text-sub); touch-action:manipulation; -webkit-tap-highlight-color:transparent; min-height:48px; }
+        .inv-slot:active { transform:scale(0.92); background:rgba(0,0,0,0.10); }
+        @media (hover: hover) { .inv-slot:hover { background:rgba(0,0,0,0.08); transform:scale(1.04); border-color:var(--accent-secondary); } }
+        .inv-slot i { font-size:clamp(20px,4.5vw,28px); color:var(--accent-secondary); }
+        .inv-slot .item-count { font-size:clamp(8px,2vw,11px); color:var(--text-muted); position:absolute; bottom:clamp(2px,0.5vw,6px); right:clamp(4px,1vw,8px); font-weight:700; }
+        .inv-slot.highlight { border-color:var(--accent-primary); background:rgba(200,152,58,0.10); }
+
+        .shop-item { display:flex; align-items:center; padding:clamp(8px,2vw,14px) clamp(6px,1.5vw,12px); gap:clamp(8px,2vw,14px); border-radius:var(--radius-sm); border-bottom:1px solid var(--border-light); cursor:pointer; transition:all 0.15s ease; color:var(--text-secondary); touch-action:manipulation; -webkit-tap-highlight-color:transparent; min-height:var(--touch-target); }
+        .shop-item:active { transform:scale(0.97); background:rgba(0,0,0,0.04); }
+        @media (hover: hover) { .shop-item:hover { background:rgba(0,0,0,0.04); } }
+        .shop-item:last-child { border-bottom:none; }
+        .shop-item .s-icon { font-size:clamp(18px,4.5vw,24px); flex-shrink:0; color:var(--accent-secondary); width:clamp(28px,6vw,36px); text-align:center; }
+        .shop-item .s-info { flex:1; min-width:0; }
+        .shop-item .s-name { font-size:clamp(13px,3vw,16px); font-weight:700; color:var(--text-main); }
+        .shop-item .s-desc { font-size:clamp(10px,2.2vw,13px); color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .shop-item .s-price { font-size:clamp(12px,2.8vw,15px); color:var(--accent-primary); font-weight:700; flex-shrink:0; }
+        .shop-divider { height:1px; background:var(--border-light); margin:clamp(4px,1vw,8px) 0; }
+        .placeholder-text { color:var(--text-muted); text-align:center; padding:20px 0; font-size:clamp(12px,3vw,14px); }
+
+        #toast { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) scale(0.92); background:rgba(20,15,10,0.88); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); color:#fff; padding:clamp(8px,2vw,14px) clamp(18px,5vw,32px); border-radius:var(--radius-full); font-size:clamp(12px,3vw,16px); font-weight:700; pointer-events:none; z-index:100; opacity:0; transition:opacity 0.25s ease, transform 0.3s cubic-bezier(0.34,1.56,0.64,1); box-shadow:0 8px 30px rgba(0,0,0,0.5); white-space:nowrap; border:1px solid rgba(255,255,255,0.06); max-width:85vw; text-overflow:ellipsis; overflow:hidden; }
+        #toast.show { opacity:1; transform:translate(-50%,-50%) scale(1); }
+
+        #settings-panel { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) scale(0.92); z-index:150; background:var(--bg-panel); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-radius:20px; padding:clamp(18px,5vw,28px) clamp(16px,4vw,24px); min-width:min(280px,85vw); max-width:92vw; box-shadow:var(--shadow-panel); border:1px solid var(--border-light); opacity:0; pointer-events:none; transition:opacity var(--transition-smooth), transform var(--transition-smooth); }
+        #settings-panel.open { opacity:1; transform:translate(-50%,-50%) scale(1); pointer-events:auto; }
+        .settings-title { font-size:clamp(16px,4.5vw,22px); font-weight:700; color:var(--text-primary); text-align:center; margin-bottom:clamp(12px,3vw,20px); }
+        .settings-title i { margin-right:6px; color:var(--accent-primary); }
+        .settings-group { margin-bottom:clamp(12px,3vw,18px); }
+        .settings-label { font-size:clamp(10px,2.5vw,13px); font-weight:700; color:var(--text-muted); margin-bottom:6px; display:block; text-transform:uppercase; letter-spacing:1px; }
+        .settings-options { display:flex; gap:clamp(6px,1.5vw,10px); flex-wrap:wrap; }
+        .settings-option { padding:clamp(4px,1vw,8px) clamp(12px,3vw,18px); border-radius:var(--radius-full); border:2px solid var(--border-light); background:transparent; cursor:pointer; font-size:clamp(11px,2.8vw,14px); font-weight:600; color:var(--text-secondary); transition:all 0.2s ease; font-family:var(--font); touch-action:manipulation; min-height:var(--touch-target); display:inline-flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent; }
+        .settings-option:active { transform:scale(0.94); }
+        @media (hover: hover) { .settings-option:hover { border-color:var(--accent-secondary); } }
+        .settings-option.active { border-color:var(--accent-primary); background:var(--accent-primary); color:#fff; }
+        .settings-option.color-swatch { width:clamp(32px,8vw,40px); height:clamp(32px,8vw,40px); border-radius:50%; border:3px solid transparent; padding:0; display:flex; align-items:center; justify-content:center; font-size:0; min-height:unset; }
+        .settings-option.color-swatch.active { border-color:var(--text-primary); box-shadow:0 0 0 2px var(--bg-primary); }
+        .settings-option.color-swatch.warm { background:#c8983a; }
+        .settings-option.color-swatch.mint { background:#4dab9e; }
+        .settings-option.color-swatch.indigo { background:#7c8fc0; }
+        .settings-option.color-swatch.rose { background:#d4878a; }
+        .settings-close { display:block; margin:clamp(6px,1.5vw,12px) auto 0; padding:clamp(6px,1.5vw,10px) clamp(20px,5vw,32px); border:none; border-radius:var(--radius-full); background:var(--accent-primary); color:#fff; font-weight:700; cursor:pointer; font-family:var(--font); font-size:clamp(13px,3.2vw,16px); transition:background 0.2s, transform 0.15s; touch-action:manipulation; min-height:var(--touch-target); -webkit-tap-highlight-color:transparent; }
+        .settings-close:active { transform:scale(0.94); }
+        @media (hover: hover) { .settings-close:hover { filter:brightness(1.08); } }
+        #settings-overlay { position:absolute; inset:0; z-index:140; background:rgba(0,0,0,0.4); opacity:0; pointer-events:none; transition:opacity var(--transition); backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px); }
+        #settings-overlay.open { opacity:1; pointer-events:auto; }
+
+        /* ----- 响应式调整（移动端优先） ----- */
+        @media (min-width: 768px) {
+            .ui-stage { flex-direction:row; padding:12px; gap:12px; }
+            .main-wrap { order:1; flex:1; }
+            #tool-bar { flex-direction:column; width:64px; height:auto; min-height:0; margin-top:0; padding:8px 4px; gap:4px; order:0; flex-shrink:0; }
+            .tool-btn { flex:none; width:100%; padding:8px 0; font-size:8px; min-height:48px; }
+            .tool-btn i { font-size:20px; }
+            .tool-btn .badge { top:2px; right:2px; font-size:8px; min-width:14px; height:14px; }
+            #top-bar { height:48px; padding:0 16px; margin-bottom:10px; flex-wrap:nowrap; }
+            .app-grid { grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:10px; }
+            .panel-overlay { top:0; bottom:0; left:auto; right:0; width:420px; max-width:60vw; height:100%; border-radius:16px 0 0 16px; transform:translateX(100%); padding:24px 20px; }
+            .panel-overlay.open { transform:translateX(0); }
+            .panel-close-btn { top:16px; right:20px; }
+            .search-box { max-width:280px; }
+        }
+        @media (min-width: 1024px) {
+            body { background:var(--bg-secondary); }
+            .app-wrapper { max-width:1280px; margin:0 auto; border-radius:16px; box-shadow:0 8px 40px rgba(0,0,0,0.3); height:96vh; min-height:700px; top:2vh; position:relative; }
+            .ui-stage { padding:16px; gap:16px; }
+            #tool-bar { width:96px; padding:12px 8px; gap:6px; }
+            .tool-btn { font-size:10px; min-height:56px; padding:12px 0; }
+            .tool-btn i { font-size:24px; }
+            #top-bar { height:56px; padding:0 24px; margin-bottom:12px; }
+            .content-card { padding:20px 24px; }
+            .app-grid { grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:12px; }
+            .panel-overlay { width:420px; max-width:50vw; padding:28px 24px; }
+            #status-indicator { top:72px; right:28px; font-size:26px; }
+            .search-box { max-width:360px; }
+        }
+        @media (max-width: 360px) {
+            .ui-stage { padding:4px; }
+            #top-bar { height:34px; padding:0 4px; gap:2px; flex-wrap:wrap; }
+            #tool-bar { height:40px; padding:2px 2px; gap:1px; }
+            .panel-overlay { padding:12px 8px 16px; height:55vh; }
+            .app-grid { grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:4px; }
+            .app-card { padding:6px; }
+            .app-card i { font-size:18px; }
+            .app-card .app-name { font-size:10px; }
+            .grid-4 { gap:4px; }
+            .inv-slot { min-height:32px; }
+            .inv-slot i { font-size:14px; }
+            .inv-slot .item-count { font-size:7px; }
+            .shop-item { padding:4px 4px; gap:6px; min-height:32px; }
+            .shop-item .s-name { font-size:10px; }
+            .shop-item .s-desc { font-size:8px; }
+            #toast { font-size:10px; padding:4px 12px; white-space:normal; max-width:80vw; }
+            #settings-panel { padding:12px 10px; min-width:200px; }
+            .panel-close-btn { top:8px; right:8px; width:28px; height:28px; font-size:14px; }
+            .search-box { min-width:60px; }
+            .search-box input { font-size:10px; }
+        }
+        @supports (padding: max(0px)) {
+            .app-wrapper { padding-left:max(0px, var(--safe-left)); padding-right:max(0px, var(--safe-right)); padding-top:max(0px, var(--safe-top)); padding-bottom:max(0px, var(--safe-bottom)); }
+            #top-bar { padding-left:max(clamp(8px,2vw,20px), var(--safe-left)); padding-right:max(clamp(8px,2vw,20px), var(--safe-right)); }
+            .panel-overlay { padding-left:max(16px, var(--safe-left)); padding-right:max(16px, var(--safe-right)); padding-bottom:max(16px, var(--safe-bottom)); }
+        }
+        @media (prefers-reduced-motion: reduce) { * { animation-duration:0.01ms !important; transition-duration:0.01ms !important; } }
+        [data-theme="dark"] .content-area::-webkit-scrollbar-thumb,
+        [data-theme="dark"] .panel-overlay::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.15); }
+        *:focus-visible { outline:2px solid var(--accent-primary); outline-offset:2px; }
+    </style>
+</head>
+<body>
+
+<div class="app-wrapper" role="application" aria-label="应用加载器">
+
+    <!-- 加载屏幕 -->
+    <div id="loading-screen" role="status" aria-live="polite">
+        <div class="loading-title">Loading</div>
+        <div class="loading-sub">PLEASE WAIT</div>
+        <div class="progress-track" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-text" id="progressText">0%</div>
+        <div class="loading-deco" aria-hidden="true">
+            <i class="fas fa-circle"></i>
+            <i class="fas fa-circle"></i>
+            <i class="fas fa-circle"></i>
+        </div>
+    </div>
+
+    <!-- UI 舞台 -->
+    <div class="ui-stage" id="uiStage">
+        <div id="status-indicator" aria-hidden="true"><i class="fas fa-star"></i></div>
+        <div id="panel-backdrop" class="panel-backdrop"></div>
+
+        <!-- 设置面板 -->
+        <div id="settings-overlay" role="presentation"></div>
+        <div id="settings-panel" role="dialog" aria-modal="true" aria-label="设置面板">
+            <div class="settings-title"><i class="fas fa-sliders-h" aria-hidden="true"></i> 设置</div>
+            <div class="settings-group">
+                <span class="settings-label" id="theme-label">日夜模式</span>
+                <div class="settings-options" id="themeModeOptions" role="radiogroup" aria-labelledby="theme-label">
+                    <button class="settings-option active" data-theme="dark" role="radio" aria-checked="true">深色</button>
+                    <button class="settings-option" data-theme="light" role="radio" aria-checked="false">浅色</button>
+                </div>
+            </div>
+            <div class="settings-group">
+                <span class="settings-label" id="color-label">主题色</span>
+                <div class="settings-options" id="colorThemeOptions" role="radiogroup" aria-labelledby="color-label">
+                    <button class="settings-option color-swatch warm active" data-color="warm" title="暖橙" role="radio" aria-checked="true" aria-label="暖橙色"></button>
+                    <button class="settings-option color-swatch mint" data-color="mint" title="薄荷" role="radio" aria-checked="false" aria-label="薄荷色"></button>
+                    <button class="settings-option color-swatch indigo" data-color="indigo" title="靛蓝" role="radio" aria-checked="false" aria-label="靛蓝色"></button>
+                    <button class="settings-option color-swatch rose" data-color="rose" title="玫瑰" role="radio" aria-checked="false" aria-label="玫瑰色"></button>
+                </div>
+            </div>
+            <button class="settings-close" id="settingsClose">关闭</button>
+        </div>
+
+        <!-- 工具栏 -->
+        <div id="tool-bar" role="tablist" aria-label="导航菜单">
+            <button type="button" class="tool-btn active" data-tool="home" role="tab" aria-selected="true" aria-label="首页">
+                <i class="fas fa-house" aria-hidden="true"></i>首页
+            </button>
+            <button type="button" class="tool-btn" data-tool="explore" role="tab" aria-selected="false" aria-label="探索">
+                <i class="fas fa-compass" aria-hidden="true"></i>探索
+                <span class="badge" id="explore-badge" aria-label="应用总数">0</span>
+            </button>
+            <button type="button" class="tool-btn" data-tool="profile" role="tab" aria-selected="false" aria-label="我的">
+                <i class="fas fa-user" aria-hidden="true"></i>我的
+            </button>
+            <button type="button" class="tool-btn" id="btn-bag" aria-label="分类浏览">
+                <i class="fas fa-tags" aria-hidden="true"></i>分类
+            </button>
+            <button type="button" class="tool-btn" id="btn-shop" aria-label="标签云">
+                <i class="fas fa-cloud" aria-hidden="true"></i>标签
+            </button>
+        </div>
+
+        <!-- 主内容 -->
+        <div class="main-wrap">
+            <div id="top-bar" role="banner">
+                <div class="search-box" style="flex:1; min-width:80px;">
+                    <i class="fas fa-search" aria-hidden="true"></i>
+                    <input type="text" id="searchInput" placeholder="搜索应用..." aria-label="搜索应用">
+                </div>
+
+                <div class="top-info" style="flex-shrink:0;">
+                    <i class="fas fa-user-circle" aria-hidden="true"></i>
+                    <span id="user-display">{% if current_user %}{{ current_user }}{% else %}未登录{% endif %}</span>
+                    <span id="role-display" style="font-size:clamp(8px,1.8vw,10px); background:rgba(200,152,58,0.2); padding:0 6px; border-radius:4px; color:var(--accent-primary);">
+                        {% if current_user %}{{ current_role }}{% endif %}
+                    </span>
+                    <button id="auth-btn" class="action-tag" style="font-size:clamp(10px,2.2vw,12px); padding:2px 10px;">
+                        {% if current_user %}登出{% else %}登录 / 注册{% endif %}
+                    </button>
+                </div>
+                <div class="top-info" id="status-display" role="button" tabindex="0" aria-label="状态信息">
+                    <i class="fas fa-circle" id="status-icon" style="font-size:10px; color:var(--accent-secondary);" aria-hidden="true"></i>
+                    <span id="status-text">就绪</span>
+                </div>
+                <div class="top-info">
+                    <span id="date-text" role="button" tabindex="0" aria-label="应用总数">加载中...</span>
+                </div>
+            </div>
+
+            <div class="content-area" id="contentArea" role="main">
+                <!-- 首页 -->
+                <div id="panel-home" class="content-panel" role="tabpanel" aria-label="首页">
+                    <div class="content-card">
+                        <div class="title"><i class="fas fa-th" aria-hidden="true"></i> 所有应用</div>
+                        <div class="app-grid" id="appGrid">
+                            {% for app in apps %}
+                            <div class="app-card{% if not app.enabled %} disabled{% endif %}"
+                                 data-app-id="{{ app.id }}"
+                                 data-tags="{{ app.tags|join(',') }}"
+                                 data-category="{{ app.category }}"
+                                 onclick="openApp({{ app.id|tojson }}, {{ app.entry|tojson }}, {{ app.enabled|tojson }})">
+                                <span class="version-tag">v{{ app.version }}</span>
+                                <span class="type-tag">{{ app.app_type }}</span>
+                                <button class="favorite-star {% if app.is_favorite %}active{% endif %}"
+                                        onclick="event.stopPropagation(); toggleFavorite({{ app.id|tojson }}, this)">
+                                    <i class="fas fa-star"></i>
+                                </button>
+                                <i class="fas {{ app.icon_class }}"></i>
+                                <div class="app-name">{{ app.name }}</div>
+                                <div class="app-desc">{{ app.description or app.id }}</div>
+                                <span class="app-badge">{{ app.html_files|length }} 页面</span>
+                                <div class="star-rating" data-app-id="{{ app.id }}" onclick="event.stopPropagation();">
+                                    <span class="star" data-score="1">★</span>
+                                    <span class="star" data-score="2">★</span>
+                                    <span class="star" data-score="3">★</span>
+                                    <span class="star" data-score="4">★</span>
+                                    <span class="star" data-score="5">★</span>
+                                </div>
+                                <div class="avg-rating">⭐ {{ app.avg_rating }} ({{ app.rating_count }}人) · 👁 {{ app.access_count }}</div>
+                                <!-- 截图预览 -->
+                                <div class="screenshot-preview">
+                                    <img src="/api/v1/screenshot/{{ app.id }}" 
+                                         alt="截图" 
+                                         loading="lazy"
+                                         onerror="this.style.display='none'; this.parentElement.querySelector('.screenshot-fallback').style.display='flex';">
+                                    <div class="screenshot-fallback">
+                                        <i class="fas fa-image" style="font-size:24px;"></i>
+                                        <span>预览不可用</span>
+                                    </div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="placeholder-text">暂无应用，请在 apps/ 目录下添加</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="content-card">
+                        <div class="title"><i class="fas fa-bolt" aria-hidden="true"></i>快捷操作</div>
+                        <div class="action-tags">
+                            <span class="action-tag" onclick="location.href='/admin'"><i class="fas fa-cog"></i>管理后台</span>
+                            <span class="action-tag" onclick="location.reload()"><i class="fas fa-sync"></i>刷新</span>
+                            <span class="action-tag" id="openSettingsBtn"><i class="fas fa-palette"></i>主题</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 探索 -->
+                <div id="panel-explore" class="content-panel hidden" role="tabpanel" aria-label="探索">
+                    <div class="content-card">
+                        <div class="title"><i class="fas fa-compass" aria-hidden="true"></i> 为你推荐</div>
+                        <div id="explore-content">加载推荐...</div>
+                        <div class="app-grid" id="exploreGrid"></div>
+                    </div>
+                </div>
+
+                <!-- 我的 -->
+                <div id="panel-profile" class="content-panel hidden" role="tabpanel" aria-label="我的">
+                    <div class="content-card">
+                        <div class="title"><i class="fas fa-user" aria-hidden="true"></i>个人资料</div>
+                        <div id="profile-content">加载中...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 浮动面板：分类 -->
+        <div class="panel-overlay" id="inventory-panel" role="dialog" aria-modal="true" aria-label="分类浏览">
+            <div class="panel-close-btn" id="inv-close-btn"><i class="fas fa-times"></i></div>
+            <div class="panel-title"><i class="fas fa-tags" aria-hidden="true"></i>应用分类</div>
+            <div class="grid-4" id="inv-grid">加载中...</div>
+        </div>
+
+        <!-- 浮动面板：标签云 -->
+        <div class="panel-overlay" id="shop-panel" role="dialog" aria-modal="true" aria-label="标签云">
+            <div class="panel-close-btn" id="shop-close-btn"><i class="fas fa-times"></i></div>
+            <div class="panel-title"><i class="fas fa-cloud" aria-hidden="true"></i>标签云 <span style="font-size:12px;color:var(--text-muted);">（点击可管理）</span></div>
+            <div id="shop-list">加载中...</div>
+        </div>
+
+        <!-- 登录/注册模态框 -->
+        <div id="auth-modal" style="display:none; position:fixed; inset:0; z-index:300; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
+            <div style="background:var(--bg-panel); border-radius:20px; padding:2rem; max-width:400px; width:90%; border:1px solid var(--border-light);">
+                <h2 style="text-align:center; color:var(--text-primary); margin-bottom:1rem;"><i class="fas fa-user-circle" style="color:var(--accent-primary);"></i> <span id="auth-modal-title">登录</span></h2>
+                <form id="auth-form">
+                    <input type="text" id="auth-username" placeholder="用户名" style="width:100%; padding:0.6rem; margin:0.5rem 0; background:rgba(255,255,255,0.05); border:1px solid var(--border-light); border-radius:6px; color:var(--text-primary);" required>
+                    <input type="password" id="auth-password" placeholder="密码（至少4位）" style="width:100%; padding:0.6rem; margin:0.5rem 0; background:rgba(255,255,255,0.05); border:1px solid var(--border-light); border-radius:6px; color:var(--text-primary);" required>
+                    <div style="display:flex; gap:10px; margin-top:0.5rem;">
+                        <button type="submit" id="auth-submit-btn" class="action-tag" style="flex:1; justify-content:center; background:var(--accent-primary); color:#1a0f08;">登录</button>
+                        <button type="button" id="auth-toggle-btn" class="action-tag" style="flex:1; justify-content:center;">切换注册</button>
+                    </div>
+                    <div id="auth-error" style="color:#e07040; text-align:center; margin-top:0.5rem; display:none;"></div>
+                </form>
+                <button id="auth-close-btn" style="display:block; margin:1rem auto 0; background:transparent; border:none; color:var(--text-muted); cursor:pointer;">取消</button>
+            </div>
+        </div>
+
+        <!-- Toast -->
+        <div id="toast" role="alert" aria-live="polite"></div>
+    </div>
+</div>
+<script>
+(function() {
+    'use strict';
+
+    // ==========================
+    // 全局变量（使用 Jinja2 渲染）
+    // ==========================
+    const CURRENT_USER = {{ current_user|tojson }};
+    const CURRENT_ROLE = {{ current_role|tojson }};
+
+    // ==========================
+    // DOM 引用
+    // ==========================
+    var DOM = {
+        loadingScreen: document.getElementById('loading-screen'),
+        progressFill: document.getElementById('progressFill'),
+        progressText: document.getElementById('progressText'),
+        uiStage: document.getElementById('uiStage'),
+        toastEl: document.getElementById('toast'),
+        toolBtns: document.querySelectorAll('.tool-btn[data-tool]'),
+        btnBag: document.getElementById('btn-bag'),
+        btnShop: document.getElementById('btn-shop'),
+        invPanel: document.getElementById('inventory-panel'),
+        shopPanel: document.getElementById('shop-panel'),
+        invGrid: document.getElementById('inv-grid'),
+        shopList: document.getElementById('shop-list'),
+        panels: {
+            home: document.getElementById('panel-home'),
+            explore: document.getElementById('panel-explore'),
+            profile: document.getElementById('panel-profile')
+        },
+        statusText: document.getElementById('status-text'),
+        statusIcon: document.getElementById('status-icon'),
+        dateText: document.getElementById('date-text'),
+        settingsPanel: document.getElementById('settings-panel'),
+        settingsOverlay: document.getElementById('settings-overlay'),
+        openSettingsBtn: document.getElementById('openSettingsBtn'),
+        settingsClose: document.getElementById('settingsClose'),
+        themeModeOptions: document.getElementById('themeModeOptions'),
+        colorThemeOptions: document.getElementById('colorThemeOptions'),
+        exploreContent: document.getElementById('explore-content'),
+        exploreGrid: document.getElementById('exploreGrid'),
+        profileContent: document.getElementById('profile-content'),
+        panelBackdrop: document.getElementById('panel-backdrop'),
+        invCloseBtn: document.getElementById('inv-close-btn'),
+        shopCloseBtn: document.getElementById('shop-close-btn'),
+        appGrid: document.getElementById('appGrid'),
+        exploreBadge: document.getElementById('explore-badge'),
+        userDisplay: document.getElementById('user-display'),
+        roleDisplay: document.getElementById('role-display'),
+        authBtn: document.getElementById('auth-btn'),
+        authModal: document.getElementById('auth-modal'),
+        authForm: document.getElementById('auth-form'),
+        authUsername: document.getElementById('auth-username'),
+        authPassword: document.getElementById('auth-password'),
+        authSubmitBtn: document.getElementById('auth-submit-btn'),
+        authToggleBtn: document.getElementById('auth-toggle-btn'),
+        authCloseBtn: document.getElementById('auth-close-btn'),
+        authError: document.getElementById('auth-error'),
+        authModalTitle: document.getElementById('auth-modal-title'),
+        searchInput: document.getElementById('searchInput')
+    };
+
+    var toastTimer = null;
+    var isInvOpen = false, isShopOpen = false, currentTab = 'home';
+    var authMode = 'login';
+
+    // ==========================
+    // 工具函数
+    // ==========================
+    function showToast(msg, duration) {
+        duration = duration || 1600;
+        DOM.toastEl.textContent = msg;
+        DOM.toastEl.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function() { DOM.toastEl.classList.remove('show'); }, duration);
+    }
+
+    function closeAllPanels(msg) {
+        DOM.invPanel.classList.remove('open');
+        DOM.shopPanel.classList.remove('open');
+        DOM.panelBackdrop.classList.remove('open');
+        isInvOpen = false;
+        isShopOpen = false;
+        if (msg) showToast(msg);
+    }
+
+    function debounce(fn, delay) { var timer; return function() { clearTimeout(timer); timer = setTimeout(fn, delay); }; }
+
+    // ==========================
+    // 数据加载
+    // ==========================
+    function loadDashboard() {
+        fetch('/api/v1/apps/')
+            .then(r => r.json())
+            .then(apps => {
+                var count = apps.length;
+                DOM.dateText.textContent = '共 ' + count + ' 个应用';
+                DOM.exploreBadge.textContent = count;
+                var enabled = apps.filter(a => a.enabled !== false).length;
+                DOM.statusText.textContent = '已启用 ' + enabled + '/' + count;
+                DOM.statusIcon.className = 'fas fa-circle';
+                var categories = {};
+                apps.forEach(function(app) {
+                    var cat = app.category || '未分类';
+                    if (!categories[cat]) categories[cat] = [];
+                    categories[cat].push(app);
+                });
+                window._categories = categories;
+                apps.forEach(function(app) {
+                    var card = document.querySelector('.app-card[data-app-id="' + app.id + '"]');
+                    if (card) {
+                        var stars = card.querySelectorAll('.star');
+                        var avg = app.avg_rating || 0;
+                        stars.forEach(function(star, idx) {
+                            star.classList.toggle('active', idx < Math.round(avg));
+                        });
+                    }
+                });
+            })
+            .catch(() => showToast('加载应用数据失败'));
+    }
+
+    function loadExplore() {
+        var url = CURRENT_USER ? '/api/v1/recommend/for/' + encodeURIComponent(CURRENT_USER) : '/api/v1/ranking/top/access';
+        fetch(url)
+            .then(r => r.json())
+            .then(data => {
+                if (!data || data.length === 0) {
+                    DOM.exploreContent.textContent = '暂无推荐';
+                    return;
+                }
+                DOM.exploreContent.textContent = CURRENT_USER ? '基于你的使用偏好推荐' : '热门应用（按访问量）';
+                var html = '';
+                data.slice(0, 8).forEach(function(app) {
+                    html += '<div class="app-card" onclick="openApp(\'' + app.id + '\',\'' + app.entry + '\',true)">';
+                    html += '<i class="fas ' + app.icon_class + '"></i>';
+                    html += '<div class="app-name">' + app.name + '</div>';
+                    html += '<div style="font-size:11px;color:var(--text-muted);">👁 ' + (app.access_count || 0) + ' 次</div>';
+                    html += '</div>';
+                });
+                DOM.exploreGrid.innerHTML = html;
+            })
+            .catch(() => showToast('加载推荐失败'));
+    }
+
+    function loadProfile() {
+        fetch('/api/v1/apps/')
+            .then(r => r.json())
+            .then(apps => {
+                var total = apps.length;
+                var enabled = apps.filter(a => a.enabled !== false).length;
+                var totalAccess = apps.reduce(function(s, a) { return s + (a.access_count || 0); }, 0);
+                var html = '<div style="display:flex; align-items:center; gap:12px;">';
+                html += '<i class="fas fa-user-circle" style="font-size:clamp(28px,7vw,40px); color:var(--accent-secondary);"></i>';
+                html += '<div><div style="font-weight:700; font-size:clamp(14px,3.5vw,18px);">' + (CURRENT_USER || '访客') + '</div>';
+                html += '<div style="font-size:clamp(11px,2.8vw,14px); color:var(--text-muted);">应用数: ' + total + ' | 启用: ' + enabled + '</div>';
+                html += '<div style="font-size:clamp(11px,2.8vw,14px); color:var(--text-muted);">总访问: ' + totalAccess + ' 次</div>';
+                if (CURRENT_USER) {
+                    html += '<div style="font-size:clamp(11px,2.8vw,14px); color:var(--text-muted);">角色: ' + (CURRENT_ROLE || 'user') + '</div>';
+                }
+                html += '</div></div>';
+                html += '<div class="action-tags" style="margin-top:10px;">';
+                html += '<span class="action-tag" onclick="location.href=\'/admin\'"><i class="fas fa-cog"></i>管理后台</span>';
+                html += '<span class="action-tag" onclick="location.reload()"><i class="fas fa-sync"></i>刷新</span></div>';
+                DOM.profileContent.innerHTML = html;
+            })
+            .catch(() => showToast('加载用户信息失败'));
+    }
+
+    // ==========================
+    // 搜索功能
+    // ==========================
+    DOM.searchInput.addEventListener('input', debounce(function() {
+        var q = this.value.trim();
+        if (!q) {
+            document.querySelectorAll('#appGrid .app-card').forEach(function(card) { card.style.display = ''; });
+            var tip = document.getElementById('filter-tip');
+            if (tip) tip.remove();
+            return;
+        }
+        fetch('/api/v1/search?q=' + encodeURIComponent(q))
+            .then(r => r.json())
+            .then(results => {
+                var ids = results.map(function(r) { return r.id; });
+                document.querySelectorAll('#appGrid .app-card').forEach(function(card) {
+                    var id = card.dataset.appId;
+                    card.style.display = ids.includes(id) ? '' : 'none';
+                });
+                var grid = document.getElementById('appGrid');
+                var msg = document.getElementById('filter-tip') || document.createElement('div');
+                msg.className = 'placeholder-text';
+                msg.id = 'filter-tip';
+                msg.textContent = '搜索结果: ' + results.length + ' 个应用 (点击此处清除)';
+                msg.style.cursor = 'pointer';
+                msg.onclick = function() { location.reload(); };
+                if (!document.getElementById('filter-tip')) {
+                    grid.parentNode.insertBefore(msg, grid);
+                }
+            })
+            .catch(function() { showToast('搜索失败'); });
+    }, 300));
+
+    // ==========================
+    // 评分功能
+    // ==========================
+    document.addEventListener('click', function(e) {
+        var star = e.target.closest('.star');
+        if (!star) return;
+        var card = star.closest('.app-card');
+        if (!card) return;
+        var appId = card.dataset.appId;
+        var score = parseInt(star.dataset.score);
+        if (!CURRENT_USER) { showToast('请先登录'); return; }
+        fetch('/api/v1/rating/' + appId, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ score: score, user: CURRENT_USER })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.average !== undefined) {
+                var stars = card.querySelectorAll('.star');
+                stars.forEach(function(s, idx) {
+                    s.classList.toggle('active', idx < Math.round(data.average));
+                });
+                var avgSpan = card.querySelector('.avg-rating');
+                if (avgSpan) {
+                    var count = avgSpan.textContent.match(/\((\d+)人\)/);
+                    var newCount = count ? parseInt(count[1]) + (card.querySelector('.star.active') ? 0 : 1) : 0;
+                    avgSpan.textContent = '⭐ ' + data.average.toFixed(1) + ' (' + newCount + '人) · 👁 ' + (card.querySelector('.avg-rating').textContent.match(/👁 (\d+)/) ? card.querySelector('.avg-rating').textContent.match(/👁 (\d+)/)[1] : '0');
+                }
+                showToast('评分已更新');
+            }
+        })
+        .catch(function() { showToast('评分失败'); });
+    });
+
+    // ==========================
+    // 截图预览（悬停）
+    // ==========================
+    document.querySelectorAll('.app-card').forEach(function(card) {
+        card.addEventListener('mouseenter', function() {
+            var preview = this.querySelector('.screenshot-preview');
+            if (preview) preview.style.display = 'block';
+        });
+        card.addEventListener('mouseleave', function() {
+            var preview = this.querySelector('.screenshot-preview');
+            if (preview) preview.style.display = 'none';
+        });
+    });
+
+    // ==========================
+    // 性能监控上报
+    // ==========================
+    if (window.performance && window.performance.getEntriesByType) {
+        window.addEventListener('load', function() {
+            var perf = performance.getEntriesByType('navigation')[0];
+            if (!perf) return;
+            var loadTime = perf.loadEventEnd - perf.fetchStart;
+            var resourceSize = performance.getEntriesByType('resource')
+                .reduce(function(sum, r) { return sum + (r.transferSize || 0); }, 0);
+            var path = window.location.pathname;
+            var match = path.match(/\/app\/([^\/]+)\//);
+            if (match) {
+                var appId = match[1];
+                fetch('/api/v1/performance/' + appId + '/report', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ load_time: loadTime, resource_size: resourceSize })
+                }).catch(function() {});
+            }
+        });
+    }
+
+    // ==========================
+    // 交互函数
+    // ==========================
+    function switchTab(tabId) {
+        for (var key in DOM.panels) DOM.panels[key].classList.add('hidden');
+        if (DOM.panels[tabId]) DOM.panels[tabId].classList.remove('hidden');
+        currentTab = tabId;
+        DOM.toolBtns.forEach(function(btn) {
+            btn.classList.remove('active');
+            btn.setAttribute('aria-selected', 'false');
+            if (btn.dataset.tool === tabId) { btn.classList.add('active');
+                btn.setAttribute('aria-selected', 'true'); }
+        });
+        closeAllPanels();
+        var tabNames = { home: '首页', explore: '探索', profile: '我的' };
+        DOM.statusText.textContent = tabNames[tabId] || '就绪';
+        DOM.statusIcon.className = 'fas fa-circle';
+        if (tabId === 'explore') loadExplore();
+        if (tabId === 'profile') loadProfile();
+    }
+
+    function togglePanel(type) {
+        if (type === 'inv') {
+            if (isInvOpen) { closeAllPanels('已关闭分类'); return; }
+            closeAllPanels();
+            DOM.invPanel.classList.add('open');
+            DOM.panelBackdrop.classList.add('open');
+            isInvOpen = true;
+            var cats = window._categories || {};
+            var keys = Object.keys(cats);
+            if (keys.length === 0) {
+                DOM.invGrid.innerHTML = '<div class="placeholder-text">暂无分类</div>';
+            } else {
+                var html = '';
+                keys.slice(0, 8).forEach(function(cat) {
+                    var count = cats[cat].length;
+                    html += '<div class="inv-slot" data-category="' + cat + '" data-count="' + count + '">';
+                    html += '<i class="fas fa-folder"></i>';
+                    html += '<span style="font-size:clamp(10px,2.5vw,12px);">' + cat + '</span>';
+                    html += '<span class="item-count">' + count + '</span>';
+                    html += '</div>';
+                });
+                DOM.invGrid.innerHTML = html;
+            }
+            showToast('打开分类浏览');
+        } else if (type === 'shop') {
+            if (isShopOpen) { closeAllPanels('已关闭标签云'); return; }
+            closeAllPanels();
+            DOM.shopPanel.classList.add('open');
+            DOM.panelBackdrop.classList.add('open');
+            isShopOpen = true;
+            fetch('/api/v1/tags/cloud')
+                .then(r => r.json())
+                .then(tags => {
+                    if (!tags || tags.length === 0) {
+                        DOM.shopList.innerHTML = '<div class="placeholder-text">暂无标签</div>';
+                        return;
+                    }
+                    var html = '';
+                    tags.slice(0, 15).forEach(function(tag) {
+                        html += '<div class="shop-item" data-tag="' + tag.name + '" data-count="' + tag.count + '">';
+                        html += '<i class="fas fa-tag s-icon"></i>';
+                        html += '<div class="s-info"><div class="s-name">' + tag.name + '</div>';
+                        html += '<div class="s-desc">' + tag.count + ' 个应用</div></div>';
+                        html += '<span class="s-price">' + tag.count + 'P</span>';
+                        if (CURRENT_ROLE === 'admin') {
+                            html += '<button class="action-tag" style="font-size:10px;padding:0 8px;" onclick="event.stopPropagation(); manageTag(\'' + tag.name + '\')"><i class="fas fa-edit"></i></button>';
+                        }
+                        html += '</div>';
+                    });
+                    DOM.shopList.innerHTML = html;
+                })
+                .catch(function() { DOM.shopList.innerHTML = '<div class="placeholder-text">加载失败</div>'; });
+            showToast('打开标签云');
+        }
+    }
+
+    window.manageTag = function(tag) {
+        var action = prompt('管理标签 "' + tag + '"\n输入 "rename:新名称" 或 "delete" 或 "merge:目标标签"');
+        if (!action) return;
+        if (action.startsWith('rename:')) {
+            var newName = action.substring(7).trim();
+            if (!newName) { showToast('新名称不能为空'); return; }
+            fetch('/api/v1/tags/rename', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ old: tag, new: newName })
+            })
+            .then(r => r.json())
+            .then(function(data) { showToast(data.message || '重命名成功');
+                location.reload(); })
+            .catch(function() { showToast('操作失败'); });
+        } else if (action === 'delete') {
+            if (!confirm('确认删除标签 "' + tag + '"？')) return;
+            fetch('/api/v1/tags/' + encodeURIComponent(tag), { method: 'DELETE' })
+            .then(r => r.json())
+            .then(function(data) { showToast(data.message || '删除成功');
+                location.reload(); })
+            .catch(function() { showToast('操作失败'); });
+        } else if (action.startsWith('merge:')) {
+            var target = action.substring(6).trim();
+            if (!target) { showToast('目标标签不能为空'); return; }
+            fetch('/api/v1/tags/merge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source: tag, target: target })
+            })
+            .then(r => r.json())
+            .then(function(data) { showToast(data.message || '合并成功');
+                location.reload(); })
+            .catch(function() { showToast('操作失败'); });
+        }
+    };
+
+    window.openApp = function(appId, entry, enabled) {
+        if (!enabled) { showToast('应用已禁用'); return; }
+        window.open('/app/' + encodeURIComponent(appId) + '/' + encodeURIComponent(entry), '_blank');
+    };
+
+    window.toggleFavorite = function(appId, el) {
+        if (!CURRENT_USER) {
+            showToast('请先登录');
+            return;
+        }
+        var isFavorite = el.classList.contains('active');
+        fetch('/api/v1/favorite/' + appId, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ favorite: !isFavorite })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                el.classList.toggle('active');
+                showToast(isFavorite ? '已取消收藏' : '已收藏');
+            }
+        })
+        .catch(() => showToast('操作失败'));
+    };
+
+    // ==========================
+    // 用户认证
+    // ==========================
+    function openAuthModal(mode) {
+        authMode = mode || 'login';
+        DOM.authModalTitle.textContent = mode === 'login' ? '登录' : '注册';
+        DOM.authSubmitBtn.textContent = mode === 'login' ? '登录' : '注册';
+        DOM.authError.style.display = 'none';
+        DOM.authModal.style.display = 'flex';
+        DOM.authUsername.value = '';
+        DOM.authPassword.value = '';
+        DOM.authUsername.focus();
+    }
+
+    function closeAuthModal() {
+        DOM.authModal.style.display = 'none';
+    }
+
+    DOM.authToggleBtn.addEventListener('click', function() {
+        var newMode = authMode === 'login' ? 'register' : 'login';
+        openAuthModal(newMode);
+    });
+
+    DOM.authForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var username = DOM.authUsername.value.trim();
+        var password = DOM.authPassword.value.trim();
+        if (!username || !password) {
+            DOM.authError.textContent = '用户名和密码不能为空';
+            DOM.authError.style.display = 'block';
+            return;
+        }
+        if (authMode === 'register' && password.length < 4) {
+            DOM.authError.textContent = '密码至少4位';
+            DOM.authError.style.display = 'block';
+            return;
+        }
+        var endpoint = authMode === 'login' ? '/api/v1/auth/login' : '/api/v1/auth/register';
+        fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: username, password: password })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                showToast(authMode === 'login' ? '登录成功' : '注册成功，已自动登录');
+                closeAuthModal();
+                setTimeout(function() { location.reload(); }, 500);
+            } else {
+                DOM.authError.textContent = data.error || '操作失败';
+                DOM.authError.style.display = 'block';
+            }
+        })
+        .catch(function() {
+            DOM.authError.textContent = '网络错误，请重试';
+            DOM.authError.style.display = 'block';
+        });
+    });
+
+    DOM.authCloseBtn.addEventListener('click', closeAuthModal);
+    DOM.authModal.addEventListener('click', function(e) {
+        if (e.target === this) closeAuthModal();
+    });
+
+    DOM.authBtn.addEventListener('click', function() {
+        if (CURRENT_USER) {
+            if (confirm('确定要登出吗？')) {
+                fetch('/api/v1/auth/logout', { method: 'POST' })
+                    .then(() => { location.reload(); });
+            }
+        } else {
+            openAuthModal('login');
+        }
+    });
+
+    // ==========================
+    // 主题偏好
+    // ==========================
+    function setTheme(mode) {
+        document.documentElement.setAttribute('data-theme', mode);
+        var btns = DOM.themeModeOptions.querySelectorAll('.settings-option');
+        btns.forEach(function(btn) {
+            btn.classList.remove('active');
+            btn.setAttribute('aria-checked', 'false');
+            if (btn.dataset.theme === mode) { btn.classList.add('active');
+                btn.setAttribute('aria-checked', 'true'); }
+        });
+        try { localStorage.setItem('ui-theme', mode); } catch (e) {}
+        showToast('切换为 ' + (mode === 'dark' ? '深色' : '浅色') + '模式');
+    }
+
+    function setColor(color) {
+        document.documentElement.setAttribute('data-theme-color', color);
+        var btns = DOM.colorThemeOptions.querySelectorAll('.settings-option');
+        btns.forEach(function(btn) {
+            btn.classList.remove('active');
+            btn.setAttribute('aria-checked', 'false');
+            if (btn.dataset.color === color) { btn.classList.add('active');
+                btn.setAttribute('aria-checked', 'true'); }
+        });
+        try { localStorage.setItem('ui-color', color); } catch (e) {}
+        showToast('主题色已切换');
+    }
+
+    function loadPreferences() {
+        try {
+            var savedTheme = localStorage.getItem('ui-theme');
+            if (savedTheme && (savedTheme === 'dark' || savedTheme === 'light')) setTheme(savedTheme);
+            var savedColor = localStorage.getItem('ui-color');
+            if (savedColor) setColor(savedColor);
+        } catch (e) {}
+    }
+
+    function openSettings() { DOM.settingsPanel.classList.add('open');
+        DOM.settingsOverlay.classList.add('open'); }
+    function closeSettings() { DOM.settingsPanel.classList.remove('open');
+        DOM.settingsOverlay.classList.remove('open');
+        showToast('已关闭设置'); }
+
+    // ==========================
+    // 启动加载动画
+    // ==========================
+    function startLoading() {
+        var progress = 0;
+        DOM.progressFill.style.width = '0%';
+        DOM.progressText.textContent = '0%';
+        DOM.loadingScreen.classList.remove('hidden');
+        DOM.uiStage.classList.remove('visible');
+        var lastTime = performance.now();
+
+        function step(time) {
+            var delta = time - lastTime;
+            lastTime = time;
+            var increment = 0.5 + Math.random() * 2.5;
+            progress = Math.min(100, progress + increment * (delta / 16));
+            DOM.progressFill.style.width = progress + '%';
+            DOM.progressFill.setAttribute('aria-valuenow', Math.floor(progress));
+            DOM.progressText.textContent = Math.floor(progress) + '%';
+            if (progress < 100) { requestAnimationFrame(step); } else {
+                DOM.progressFill.style.width = '100%';
+                DOM.progressFill.setAttribute('aria-valuenow', 100);
+                DOM.progressText.textContent = '100%';
+                Promise.all([
+                    loadDashboard(),
+                    loadExplore(),
+                    loadProfile()
+                ]).then(function() {
+                    setTimeout(function() {
+                        DOM.loadingScreen.classList.add('hidden');
+                        DOM.uiStage.classList.add('visible');
+                        showToast('加载完成', 1800);
+                    }, 300);
+                }).catch(function() {
+                    setTimeout(function() {
+                        DOM.loadingScreen.classList.add('hidden');
+                        DOM.uiStage.classList.add('visible');
+                    }, 300);
+                });
+            }
+        }
+        requestAnimationFrame(step);
+    }
+
+    // ==========================
+    // 事件绑定
+    // ==========================
+    DOM.toolBtns.forEach(function(btn) {
+        btn.addEventListener('click', function(e) { e.stopPropagation(); var tab = this.dataset.tool; if (tab)
+                switchTab(tab); });
+        btn.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault();
+                this.click(); } });
+    });
+
+    DOM.btnBag.addEventListener('click', function(e) { e.stopPropagation();
+        togglePanel('inv'); });
+    DOM.btnShop.addEventListener('click', function(e) { e.stopPropagation();
+        togglePanel('shop'); });
+
+    DOM.invCloseBtn.addEventListener('click', function(e) { e.stopPropagation();
+        closeAllPanels('已关闭分类'); });
+    DOM.shopCloseBtn.addEventListener('click', function(e) { e.stopPropagation();
+        closeAllPanels('已关闭标签云'); });
+    DOM.panelBackdrop.addEventListener('click', function() {
+        var msg = isInvOpen ? '已关闭分类' : (isShopOpen ? '已关闭标签云' : '');
+        closeAllPanels(msg);
+    });
+
+    DOM.invGrid.addEventListener('click', function(e) {
+        var slot = e.target.closest('.inv-slot');
+        if (!slot) return;
+        var category = slot.dataset.category;
+        if (category) {
+            showToast('筛选分类: ' + category);
+            var cards = document.querySelectorAll('#appGrid .app-card');
+            var found = 0;
+            cards.forEach(function(card) {
+                var cat = card.dataset.category || '';
+                if (cat === category) { card.style.display = '';
+                    found++; } else { card.style.display = 'none'; }
+            });
+            var grid = document.getElementById('appGrid');
+            var msg = document.getElementById('filter-tip') || document.createElement('div');
+            msg.className = 'placeholder-text';
+            msg.id = 'filter-tip';
+            msg.textContent = '分类: ' + category + ' (' + found + ' 个) 点击刷新恢复';
+            msg.style.cursor = 'pointer';
+            msg.onclick = function() { location.reload(); };
+            if (!document.getElementById('filter-tip')) {
+                grid.parentNode.insertBefore(msg, grid);
+            }
+        }
+        closeAllPanels('已关闭分类');
+    });
+
+    DOM.shopList.addEventListener('click', function(e) {
+        var item = e.target.closest('.shop-item');
+        if (!item) return;
+        var tag = item.dataset.tag;
+        if (tag) {
+            showToast('筛选标签: ' + tag);
+            var cards = document.querySelectorAll('#appGrid .app-card');
+            var found = 0;
+            cards.forEach(function(card) {
+                var tags = card.dataset.tags || '';
+                if (tags.includes(tag)) { card.style.display = '';
+                    found++; } else { card.style.display = 'none'; }
+            });
+            var grid = document.getElementById('appGrid');
+            var msg = document.getElementById('filter-tip') || document.createElement('div');
+            msg.className = 'placeholder-text';
+            msg.id = 'filter-tip';
+            msg.textContent = '标签: ' + tag + ' (' + found + ' 个) 点击刷新恢复';
+            msg.style.cursor = 'pointer';
+            msg.onclick = function() { location.reload(); };
+            if (!document.getElementById('filter-tip')) {
+                grid.parentNode.insertBefore(msg, grid);
+            }
+        }
+        closeAllPanels('已关闭标签云');
+    });
+
+    DOM.statusText.closest('.top-info').addEventListener('click', function() {
+        var states = ['就绪', '忙碌', '空闲', '专注'];
+        var current = DOM.statusText.textContent;
+        var idx = states.indexOf(current);
+        idx = (idx + 1) % states.length;
+        DOM.statusText.textContent = states[idx];
+        DOM.statusIcon.className = 'fas fa-circle';
+        showToast('状态切换: ' + states[idx]);
+    });
+
+    DOM.dateText.addEventListener('click', function() {
+        location.reload();
+    });
+
+    DOM.openSettingsBtn.addEventListener('click', function(e) { e.stopPropagation();
+        openSettings(); });
+    DOM.settingsClose.addEventListener('click', closeSettings);
+    DOM.settingsOverlay.addEventListener('click', closeSettings);
+
+    DOM.themeModeOptions.addEventListener('click', function(e) {
+        var btn = e.target.closest('.settings-option');
+        if (!btn || !btn.dataset.theme) return;
+        setTheme(btn.dataset.theme);
+    });
+    DOM.colorThemeOptions.addEventListener('click', function(e) {
+        var btn = e.target.closest('.settings-option');
+        if (!btn || !btn.dataset.color) return;
+        setColor(btn.dataset.color);
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            if (DOM.settingsPanel.classList.contains('open')) closeSettings();
+            var msg = isInvOpen ? '已关闭分类' : (isShopOpen ? '已关闭标签云' : '');
+            closeAllPanels(msg);
+            if (DOM.authModal.style.display === 'flex') closeAuthModal();
+        }
+    });
+
+    // ==========================
+    // 启动
+    // ==========================
+    loadPreferences();
+    window.CURRENT_USER = CURRENT_USER;
+    setTimeout(startLoading, 300);
+    console.log('[UI] 完整修复版已启动（卡片点击、预览图遮挡已修复）');
+})();
+</script>
+</body>
+</html>

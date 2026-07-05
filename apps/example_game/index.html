@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>点击挑战</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1><i class="fas fa-gamepad"></i> 点击挑战</h1>
+    <p>在 10 秒内尽可能多点击</p>
+
+    <div class="game-area">
+        <div class="score"><i class="fas fa-star"></i> <span id="score">0</span></div>
+        <button class="btn" id="clickBtn"><i class="fas fa-hand-pointer"></i> 点我</button>
+        <div style="margin-top:0.5rem;">
+            <button class="btn btn-reset" id="resetBtn"><i class="fas fa-undo"></i> 重置</button>
+        </div>
+        <div class="tip" id="timer"><i class="fas fa-clock"></i> 10 秒</div>
+    </div>
+
+    <p style="color:#8870b0;font-size:0.8rem;"><i class="fas fa-info-circle"></i> 保存代码后页面自动刷新</p>
+    <script src="script.js"></script>
+</body>
+</html>

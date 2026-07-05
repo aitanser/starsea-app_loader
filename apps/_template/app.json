@@ -1,0 +1,12 @@
+{
+  "name": "我的应用",
+  "description": "应用功能描述",
+  "icon_class": "fa-folder",
+  "category": "未分类",
+  "tags": ["示例"],
+  "entry": "index.html",
+  "version": "1.0",
+  "author": "你的名字",
+  "type": "mpa",           // 可选值: "mpa"（多页应用）或 "spa"（单页应用）
+  "fallback": "index.html" // 当 type 为 spa 时，所有未匹配路径回退至此文件
+}

@@ -1,0 +1,7 @@
+{
+  "name": "点击挑战",
+  "description": "一个简单的点击游戏示例",
+  "icon_class": "fa-gamepad",
+  "entry": "index.html",
+  "version": "1.0"
+}
