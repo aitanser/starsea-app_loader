@@ -53,3 +53,14 @@ pip install -r requirements.txt
 
 # 启动开发服务
 python app.py
+```
+
+代码风格
+Python：遵循 PEP 8，使用 4 空格缩进。
+
+前端：遵循标准 HTML5/CSS3/ES6 规范。
+
+联系方式
+如有任何疑问，请通过 Issue 或邮件（lzc737507@outlook.com）联系维护团队。
+
+感谢您的贡献！
