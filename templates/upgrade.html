@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>升级专业版</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: #1a0f08;
+            color: #f5e6d3;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 520px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 16px;
+            padding: 48px 40px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+        .header { text-align: center; margin-bottom: 32px; }
+        .header .icon { font-size: 48px; margin-bottom: 12px; }
+        .header h1 { font-size: 24px; font-weight: 700; color: #f5e6d3; }
+        .header p { color: #a09080; font-size: 14px; margin-top: 4px; }
+        .quota-box {
+            background: rgba(200, 152, 58, 0.08);
+            border: 1px solid rgba(200, 152, 58, 0.15);
+            border-radius: 8px;
+            padding: 16px 20px;
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        .quota-box .used { font-size: 28px; font-weight: 700; color: #c8983a; }
+        .quota-box .used span { color: #f5e6d3; }
+        .quota-box .desc { font-size: 13px; color: #a09080; margin-top: 4px; }
+        .features { margin-bottom: 24px; }
+        .features .title { font-size: 14px; font-weight: 600; color: #d0c0b0; margin-bottom: 12px; }
+        .features ul { list-style: none; padding: 0; }
+        .features ul li {
+            padding: 6px 0;
+            font-size: 14px;
+            color: #b0a090;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .features ul li .check { color: #66bb6a; font-weight: 700; }
+        .features ul li .new { color: #c8983a; font-size: 11px; background: rgba(200, 152, 58, 0.12); padding: 0 8px; border-radius: 4px; }
+        .pricing {
+            text-align: center;
+            padding: 20px 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            margin-bottom: 24px;
+        }
+        .pricing .price { font-size: 36px; font-weight: 700; color: #c8983a; }
+        .pricing .period { font-size: 16px; color: #a09080; }
+        .pricing .saving { font-size: 13px; color: #66bb6a; margin-top: 4px; }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            background: #c8983a;
+            color: #1a0f08;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn:active { transform: scale(0.98); }
+        .btn-secondary {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background: transparent;
+            color: #a09080;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            transition: background 0.2s, border-color 0.2s;
+            margin-top: 10px;
+        }
+        .btn-secondary:hover { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.15); }
+        .footer { text-align: center; margin-top: 16px; font-size: 12px; color: #555; }
+        .footer a { color: #c8983a; text-decoration: none; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="icon">🚀</div>
+        <h1>免费额度已用完</h1>
+        <p>您已托管 <strong id="usedCount">3</strong> 个 Web 应用，达到免费额度上限</p>
+    </div>
+    <div class="quota-box">
+        <div class="used"><span id="appCount">3</span> / 3</div>
+        <div class="desc">当前已托管应用数</div>
+    </div>
+    <div class="features">
+        <div class="title">📦 加载器专业版</div>
+        <ul>
+            <li><span class="check">✅</span> 无限 Web 应用托管</li>
+            <li><span class="check">✅</span> 截图频率提升至 60 次/分钟</li>
+            <li><span class="check">✅</span> 批量截图 / 异步队列 <span class="new">NEW</span></li>
+            <li><span class="check">✅</span> WebSocket 实时日志 <span class="new">NEW</span></li>
+            <li><span class="check">✅</span> 优先技术支持</li>
+        </ul>
+    </div>
+    <div class="pricing">
+        <div class="price">¥99</div>
+        <div class="period">/ 年</div>
+        <div class="saving">连续订阅享 8 折优惠（¥79/年）</div>
+    </div>
+    <a href="https://starsea-os.com/subscribe-loader" class="btn">立即升级专业版</a>
+    <a href="/" class="btn-secondary">稍后再说，继续使用免费版</a>
+    <div class="footer">已有专业版激活码？<a href="/api/v1/license/activate-page">点击激活</a></div>
+</div>
+<script>
+    fetch('/api/v1/license/status')
+        .then(r => r.json())
+        .then(res => {
+            if (res.code === 0) {
+                const data = res.data;
+                document.getElementById('appCount').textContent = data.used_apps || 0;
+                document.getElementById('usedCount').textContent = data.used_apps || 0;
+            }
+        })
+        .catch(() => {});
+</script>
+</body>
+</html>

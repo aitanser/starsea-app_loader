@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+# stats.py
+# 作者: 鸿渚 | 蓝域星河
+# 版权: © 2026 鸿渚 - 蓝域星河. All rights reserved.
+
 from flask import Blueprint, jsonify
 from utils import get_trend_data
 

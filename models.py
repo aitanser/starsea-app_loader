@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+# models.py
+# 作者: 鸿渚 | 蓝域星河
+# 版权: © 2026 鸿渚 - 蓝域星河. All rights reserved.
+
 import json
 import os
 from config import (
@@ -58,11 +63,6 @@ def save_apps_config(config):
         json.dump(config, f, ensure_ascii=False, indent=2)
 
 def load_app_config(app_id):
-    """
-    读取应用目录下的 app.json 配置
-    返回字典，包含 name, entry, type, fallback 等字段
-    若文件不存在或解析失败，返回空字典
-    """
     config_path = os.path.join(DEFAULT_APPS_DIR, app_id, 'app.json')
     if os.path.exists(config_path):
         try:
@@ -96,7 +96,6 @@ def scan_apps(apps_dir=None):
                 pass
         app_cfg = apps_config.get('apps', {}).get(item, {})
         entry = config.get('entry', 'index.html' if 'index.html' in html_files else html_files[0])
-        # 新增：读取 type 和 fallback
         app_type = config.get('type', 'mpa')
         fallback = config.get('fallback', entry)
         apps.append({
@@ -114,8 +113,8 @@ def scan_apps(apps_dir=None):
             'created': app_cfg.get('created', ''),
             'last_accessed': app_cfg.get('last_accessed', ''),
             'access_count': app_cfg.get('access_count', 0),
-            'app_type': app_type,      # 新增
-            'fallback': fallback       # 新增
+            'app_type': app_type,
+            'fallback': fallback
         })
     return apps
 
@@ -137,7 +136,8 @@ def load_users():
             "admin": {
                 "password_hash": generate_password_hash("admin123"),
                 "role": "admin",
-                "created": datetime.now().isoformat()
+                "created": datetime.now().isoformat(),
+                "password_changed": False
             }
         }
         save_users(default_admin)
@@ -158,3 +158,12 @@ def create_user(username, password_hash, role='user'):
     }
     save_users(users)
     return True
+
+# ==================== 授权配额辅助函数 ====================
+from license import LicenseManager
+
+def get_app_quota_info():
+    return LicenseManager.get_quota_info()
+
+def check_can_add_app():
+    return LicenseManager.can_add_app()

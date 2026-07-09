@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+# import_batch.py
+# 作者: 鸿渚 | 蓝域星河
+# 版权: © 2026 鸿渚 - 蓝域星河. All rights reserved.
+
 from flask import Blueprint, request, jsonify
 import os
 import zipfile
@@ -32,13 +37,11 @@ def import_batch():
 
             safe_extract_zip(file, target_path)
 
-            # 递归检查 HTML 文件
             if not has_html_files(target_path):
                 shutil.rmtree(target_path)
                 results.append({'filename': file.filename, 'status': 'error', 'message': '未找到 HTML 文件'})
                 continue
 
-            # 确保 app.json 存在
             if not os.path.exists(os.path.join(target_path, 'app.json')):
                 import json
                 with open(os.path.join(target_path, 'app.json'), 'w', encoding='utf-8') as f:

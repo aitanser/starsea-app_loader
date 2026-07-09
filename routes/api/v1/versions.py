@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+# versions.py
+# 作者: 鸿渚 | 蓝域星河
+# 版权: © 2026 鸿渚 - 蓝域星河. All rights reserved.
+
 from flask import Blueprint, request, jsonify, send_file
 import os
 import shutil
@@ -11,8 +16,6 @@ os.makedirs(BACKUP_DIR, exist_ok=True)
 
 @versions_bp.route('/<app_id>')
 def list_versions(app_id):
-    """获取应用版本列表"""
-    backup_pattern = f'{app_id}_*.zip'
     backups = []
     for f in os.listdir(BACKUP_DIR):
         if f.startswith(app_id) and f.endswith('.zip'):
@@ -29,7 +32,6 @@ def list_versions(app_id):
 
 @versions_bp.route('/<app_id>/backup', methods=['POST'])
 def create_backup(app_id):
-    """创建应用备份"""
     app_dir = os.path.join(DEFAULT_APPS_DIR, app_id)
     if not os.path.exists(app_dir):
         return jsonify({'error': '应用不存在'}), 404
@@ -54,7 +56,6 @@ def create_backup(app_id):
 
 @versions_bp.route('/<app_id>/rollback', methods=['POST'])
 def rollback_version(app_id):
-    """回滚应用到指定版本"""
     data = request.json
     filename = data.get('filename')
     if not filename:
@@ -65,10 +66,8 @@ def rollback_version(app_id):
         return jsonify({'error': '备份文件不存在'}), 404
 
     app_dir = os.path.join(DEFAULT_APPS_DIR, app_id)
-    # 备份当前版本
     create_backup(app_id)
 
-    # 清空当前目录
     for item in os.listdir(app_dir):
         item_path = os.path.join(app_dir, item)
         if os.path.isdir(item_path):
@@ -76,7 +75,6 @@ def rollback_version(app_id):
         else:
             os.remove(item_path)
 
-    # 解压备份
     with zipfile.ZipFile(backup_path, 'r') as zf:
         zf.extractall(app_dir)
 

@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+# tags.py
+# 作者: 鸿渚 | 蓝域星河
+# 版权: © 2026 鸿渚 - 蓝域星河. All rights reserved.
+
 from flask import Blueprint, jsonify, request
 from models import scan_apps
 import os
@@ -25,7 +30,6 @@ def _write_app_json(app_id, config):
 def _get_all_apps():
     return scan_apps()
 
-# ---------- 全局标签操作 ----------
 @tags_bp.route('/', methods=['GET'])
 def list_tags():
     apps = _get_all_apps()
@@ -65,8 +69,6 @@ def rename_tag():
         return jsonify({'error': '缺少 old 或 new 参数'}), 400
     if old_tag == new_tag:
         return jsonify({'error': '新旧标签相同'}), 400
-    if not old_tag.strip() or not new_tag.strip():
-        return jsonify({'error': '标签不能为空字符串'}), 400
 
     apps = _get_all_apps()
     updated_count = 0
@@ -76,7 +78,6 @@ def rename_tag():
         tags = config.get('tags', [])
         if old_tag in tags:
             new_tags = [new_tag if t == old_tag else t for t in tags]
-            # 去重保持顺序
             seen = set()
             unique_tags = []
             for t in new_tags:
@@ -94,9 +95,6 @@ def rename_tag():
 
 @tags_bp.route('/<tag_name>', methods=['DELETE'])
 def delete_tag(tag_name):
-    if not tag_name or not tag_name.strip():
-        return jsonify({'error': '标签名不能为空'}), 400
-
     apps = _get_all_apps()
     updated_count = 0
     for app in apps:
@@ -122,8 +120,6 @@ def merge_tags():
         return jsonify({'error': '需要 source 和 target 参数'}), 400
     if source == target:
         return jsonify({'error': '源标签和目标标签相同'}), 400
-    if not source.strip() or not target.strip():
-        return jsonify({'error': '标签不能为空字符串'}), 400
 
     apps = _get_all_apps()
     updated_count = 0
@@ -148,10 +144,8 @@ def merge_tags():
         'message': f'标签 "{source}" 已合并到 "{target}"，共更新 {updated_count} 个应用'
     })
 
-# ---------- 单个应用标签操作 ----------
 @tags_bp.route('/<app_id>', methods=['GET'])
 def get_app_tags(app_id):
-    """获取指定应用的所有标签"""
     app = next((a for a in _get_all_apps() if a['id'] == app_id), None)
     if not app:
         return jsonify({'error': '应用不存在'}), 404
@@ -159,7 +153,6 @@ def get_app_tags(app_id):
 
 @tags_bp.route('/<app_id>', methods=['POST'])
 def add_app_tag(app_id):
-    """为应用添加一个新标签"""
     app = next((a for a in _get_all_apps() if a['id'] == app_id), None)
     if not app:
         return jsonify({'error': '应用不存在'}), 404
@@ -182,7 +175,6 @@ def add_app_tag(app_id):
 
 @tags_bp.route('/<app_id>/<tag>', methods=['DELETE'])
 def remove_app_tag(app_id, tag):
-    """从应用中移除指定标签"""
     app = next((a for a in _get_all_apps() if a['id'] == app_id), None)
     if not app:
         return jsonify({'error': '应用不存在'}), 404

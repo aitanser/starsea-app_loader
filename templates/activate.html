@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>激活加载器</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: #1a0f08;
+            color: #f5e6d3;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 520px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 16px;
+            padding: 48px 40px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+        .header { text-align: center; margin-bottom: 32px; }
+        .header .icon { font-size: 48px; margin-bottom: 12px; }
+        .header h1 { font-size: 24px; font-weight: 700; color: #f5e6d3; }
+        .header p { color: #a09080; font-size: 14px; margin-top: 4px; }
+        .features {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+        .features .title { font-size: 13px; color: #a09080; margin-bottom: 8px; font-weight: 600; }
+        .features ul { list-style: none; padding: 0; }
+        .features ul li { padding: 4px 0; font-size: 14px; color: #d0c0b0; }
+        .features ul li::before { content: "✅ "; }
+        .input-group { display: flex; gap: 12px; margin-bottom: 12px; }
+        .input-group input {
+            flex: 1;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            color: #f5e6d3;
+            font-size: 16px;
+            letter-spacing: 2px;
+            font-family: monospace;
+            outline: none;
+            transition: border-color 0.2s;
+            text-transform: uppercase;
+        }
+        .input-group input:focus { border-color: #c8983a; }
+        .input-group input::placeholder { color: #666; letter-spacing: 0; font-family: inherit; text-transform: none; }
+        .btn {
+            padding: 12px 32px;
+            background: #c8983a;
+            color: #1a0f08;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+            white-space: nowrap;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn:active { transform: scale(0.97); }
+        .btn-full { width: 100%; justify-content: center; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .message {
+            margin-top: 12px;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 14px;
+            display: none;
+        }
+        .message.error { display: block; background: rgba(224, 112, 64, 0.15); color: #e07040; border: 1px solid rgba(224, 112, 64, 0.2); }
+        .message.success { display: block; background: rgba(76, 175, 80, 0.15); color: #66bb6a; border: 1px solid rgba(76, 175, 80, 0.2); }
+        .footer { text-align: center; margin-top: 20px; font-size: 13px; color: #666; }
+        .footer a { color: #c8983a; text-decoration: none; }
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #c8983a;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+            display: none;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .divider { display: flex; align-items: center; margin: 20px 0; color: #555; font-size: 12px; }
+        .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: rgba(255, 255, 255, 0.06); }
+        .divider::before { margin-right: 16px; }
+        .divider::after { margin-left: 16px; }
+        .buy-link { text-align: center; }
+        .buy-link .btn-secondary {
+            display: inline-block;
+            padding: 10px 24px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 8px;
+            color: #d0c0b0;
+            text-decoration: none;
+            font-size: 14px;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .buy-link .btn-secondary:hover { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.2); }
+        .format-hint {
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="icon">🔑</div>
+        <h1>激活 Web 应用加载器</h1>
+        <p>输入激活码解锁 Web 应用托管能力</p>
+    </div>
+    <div class="features">
+        <div class="title">📦 包含功能</div>
+        <ul>
+            <li>Web 应用托管（免费版 3 个）</li>
+            <li>应用标签 / 分类 / 收藏</li>
+            <li>应用评分系统</li>
+            <li>自动截图预览</li>
+        </ul>
+    </div>
+    <div class="input-group">
+        <input type="text" id="activationCode" placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX" autofocus>
+        <button class="btn" id="activateBtn">
+            <span class="loading" id="loadingIcon"></span>
+            <span id="btnText">激活</span>
+        </button>
+    </div>
+    <div class="format-hint">格式：5组5位字符，用连字符分隔（如 ABC12-DEF34-GHI56-JKL78-MNO90）</div>
+    <div class="message" id="message"></div>
+    <div class="divider">或</div>
+    <div class="buy-link">
+        <a href="https://starsea-os.com/buy-loader" class="btn-secondary"><i class="fas fa-shopping-cart"></i> 购买激活码</a>
+    </div>
+    <div class="footer">已有激活码？输入上方框内即可激活</div>
+</div>
+<script>
+    document.getElementById('activationCode').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') activate();
+    });
+    document.getElementById('activationCode').focus();
+
+    function showMessage(text, type) {
+        const el = document.getElementById('message');
+        el.textContent = text;
+        el.className = 'message ' + type;
+        el.style.display = 'block';
+    }
+    function hideMessage() {
+        document.getElementById('message').style.display = 'none';
+    }
+    function setLoading(loading) {
+        const icon = document.getElementById('loadingIcon');
+        const btn = document.getElementById('activateBtn');
+        const text = document.getElementById('btnText');
+        if (loading) {
+            icon.style.display = 'inline-block';
+            text.textContent = '激活中...';
+            btn.disabled = true;
+            btn.style.opacity = '0.7';
+        } else {
+            icon.style.display = 'none';
+            text.textContent = '激活';
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        }
+    }
+    function activate() {
+        const code = document.getElementById('activationCode').value.trim().toUpperCase();
+        if (!code) {
+            showMessage('请输入激活码', 'error');
+            return;
+        }
+        // 基本格式检查
+        const parts = code.split('-');
+        if (parts.length !== 5 || parts.some(p => p.length !== 5)) {
+            showMessage('激活码格式错误，请使用 XXXXX-XXXXX-XXXXX-XXXXX-XXXXX 格式', 'error');
+            return;
+        }
+        hideMessage();
+        setLoading(true);
+        fetch('/api/v1/activate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ activation_code: code })
+        })
+        .then(r => r.json())
+        .then(data => {
+            setLoading(false);
+            if (data.code === 0) {
+                showMessage('✅ ' + data.message, 'success');
+                setTimeout(() => { window.location.href = '/'; }, 1000);
+            } else {
+                showMessage('❌ ' + data.message, 'error');
+            }
+        })
+        .catch(() => {
+            setLoading(false);
+            showMessage('网络错误，请检查网络后重试', 'error');
+        });
+    }
+</script>
+</body>
+</html>

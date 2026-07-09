@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+# __init__.py
+# 作者: 鸿渚 | 蓝域星河
+# 版权: © 2026 鸿渚 - 蓝域星河. All rights reserved.
+
 from flask import Blueprint
 from .apps import apps_bp
 from .stats import stats_bp
@@ -15,7 +20,7 @@ from .tags import tags_bp
 from .versions import versions_bp
 from .recommend import recommend_bp
 from .performance import performance_bp
-from .auth import auth_bp  # 新增
+from .auth import auth_bp
 
 api_v1_bp = Blueprint('api_v1', __name__)
 api_v1_bp.register_blueprint(apps_bp, url_prefix='/apps')
@@ -34,4 +39,4 @@ api_v1_bp.register_blueprint(tags_bp, url_prefix='/tags')
 api_v1_bp.register_blueprint(versions_bp, url_prefix='/versions')
 api_v1_bp.register_blueprint(recommend_bp, url_prefix='/recommend')
 api_v1_bp.register_blueprint(performance_bp, url_prefix='/performance')
-api_v1_bp.register_blueprint(auth_bp, url_prefix='/auth')  # 注册
+api_v1_bp.register_blueprint(auth_bp, url_prefix='/auth')

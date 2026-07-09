@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+# search.py
+# 作者: 鸿渚 | 蓝域星河
+# 版权: © 2026 鸿渚 - 蓝域星河. All rights reserved.
+
 from flask import Blueprint, request, jsonify
 from models import scan_apps
 
@@ -5,7 +10,6 @@ search_bp = Blueprint('search', __name__)
 
 @search_bp.route('')
 def search_apps():
-    """增强搜索：支持名称、描述、分类、标签、作者等"""
     keyword = request.args.get('q', '').lower().strip()
     fields = request.args.get('fields', 'name,description,category,tags').split(',')
     limit = int(request.args.get('limit', 50))
@@ -43,6 +47,5 @@ def search_apps():
             app_copy['match_fields'] = match_fields
             results.append(app_copy)
 
-    # 按匹配度排序
     results.sort(key=lambda x: x['match_score'], reverse=True)
     return jsonify(results[:limit])

@@ -1,7 +1,13 @@
+#!/usr/bin/env python3
+# main.py
+# 作者: 鸿渚 | 蓝域星河
+# 版权: © 2026 鸿渚 - 蓝域星河. All rights reserved.
+
 from flask import Blueprint, render_template, send_from_directory, request, redirect, session, make_response
 from models import scan_apps, load_favorites, load_apps_config, save_apps_config, load_app_config
 from utils import get_local_ip, get_recent_apps, log_access, record_user_app_access
 from config import DEFAULT_PORT, DEFAULT_APPS_DIR
+from license import LicenseManager
 import os
 import json
 import time
@@ -9,10 +15,9 @@ from datetime import datetime
 
 main_bp = Blueprint('main', __name__)
 
-# ---------- 访问去重缓存 ----------
 _visit_cache = {}
 _VISIT_CACHE_EXPIRE = 3
-_VISIT_CACHE_MAX = 2000   # 最大缓存条目数，防止内存泄漏
+_VISIT_CACHE_MAX = 2000
 
 def should_count_visit(app_id, client_ip):
     key = (app_id, client_ip)
@@ -21,16 +26,12 @@ def should_count_visit(app_id, client_ip):
         if now - _visit_cache[key] < _VISIT_CACHE_EXPIRE:
             return False
     _visit_cache[key] = now
-
-    # 限制缓存大小
     if len(_visit_cache) > _VISIT_CACHE_MAX:
-        # 清理一半最旧的条目
         sorted_items = sorted(_visit_cache.items(), key=lambda x: x[1])
         for k, _ in sorted_items[:len(_visit_cache)//2]:
             del _visit_cache[k]
     return True
 
-# ---------- 首页 ----------
 @main_bp.route('/')
 def index():
     apps = scan_apps()
@@ -52,6 +53,7 @@ def index():
 
     current_user = session.get('user')
     current_role = session.get('role', 'user')
+    license_info = LicenseManager.get_quota_info()
 
     return render_template('index.html',
                            apps=apps,
@@ -63,9 +65,9 @@ def index():
                            ip=get_local_ip(),
                            apps_dir=DEFAULT_APPS_DIR,
                            current_user=current_user,
-                           current_role=current_role)
+                           current_role=current_role,
+                           license=license_info)
 
-# ---------- 应用静态文件服务 ----------
 @main_bp.route('/app/<app_id>/<path:filename>')
 def serve_app_file(app_id, filename):
     app_dir = os.path.join(DEFAULT_APPS_DIR, app_id)
@@ -129,7 +131,6 @@ def serve_app_file(app_id, filename):
         response.headers['Cache-Control'] = 'no-cache, must-revalidate'
     return response
 
-# ---------- 目录自动跳转 ----------
 @main_bp.route('/app/<app_id>/')
 def serve_app_index(app_id):
     app_dir = os.path.join(DEFAULT_APPS_DIR, app_id)

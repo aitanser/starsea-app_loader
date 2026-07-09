@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+# apps.py
+# 作者: 鸿渚 | 蓝域星河
+# 版权: © 2026 鸿渚 - 蓝域星河. All rights reserved.
+
 from flask import Blueprint, request, jsonify, send_file
 from models import scan_apps, load_apps_config, save_apps_config
 import os
@@ -13,14 +18,12 @@ apps_bp = Blueprint('apps', __name__)
 
 @apps_bp.route('/', methods=['GET'])
 def list_apps():
-    """获取所有应用列表"""
     apps = scan_apps()
     return jsonify(apps)
 
 
 @apps_bp.route('/<app_id>/toggle', methods=['POST'])
 def toggle_app(app_id):
-    """启用/禁用应用"""
     data = request.json
     enabled = data.get('enabled', True)
     apps_config = load_apps_config()
@@ -33,7 +36,6 @@ def toggle_app(app_id):
 
 @apps_bp.route('/batch', methods=['POST'])
 def batch_toggle():
-    """批量启用/禁用"""
     data = request.json
     ids = data.get('ids', [])
     enabled = data.get('enabled', True)
@@ -48,7 +50,6 @@ def batch_toggle():
 
 @apps_bp.route('/batch', methods=['DELETE'])
 def batch_delete():
-    """批量删除应用"""
     data = request.json
     ids = data.get('ids', [])
     for app_id in ids:
@@ -65,7 +66,6 @@ def batch_delete():
 
 @apps_bp.route('/<app_id>', methods=['DELETE'])
 def delete_app(app_id):
-    """删除单个应用"""
     app_path = os.path.join(DEFAULT_APPS_DIR, app_id)
     if os.path.exists(app_path):
         shutil.rmtree(app_path)
@@ -78,7 +78,6 @@ def delete_app(app_id):
 
 @apps_bp.route('/<app_id>/export')
 def export_app(app_id):
-    """导出应用为 ZIP 包"""
     app_path = os.path.join(DEFAULT_APPS_DIR, app_id)
     if not os.path.exists(app_path):
         return jsonify({'error': '应用不存在'}), 404
@@ -100,8 +99,6 @@ def export_app(app_id):
 
 @apps_bp.route('/import', methods=['POST'])
 def import_app():
-    """导入 ZIP 应用包（限制 50 MB）"""
-    # 限制上传文件大小（50 MB）
     if request.content_length and request.content_length > 50 * 1024 * 1024:
         return jsonify({'error': '文件过大，请压缩后重试（最大 50 MB）'}), 413
 
@@ -116,20 +113,16 @@ def import_app():
         app_name = os.path.splitext(file.filename)[0]
         target_path = os.path.join(DEFAULT_APPS_DIR, app_name)
 
-        # 如果已存在，添加时间戳后缀
         if os.path.exists(target_path):
             app_name = app_name + '_' + datetime.now().strftime('%Y%m%d%H%M%S')
             target_path = os.path.join(DEFAULT_APPS_DIR, app_name)
 
-        # 安全解压
         safe_extract_zip(file, target_path)
 
-        # 递归检查是否存在 HTML 文件
         if not has_html_files(target_path):
             shutil.rmtree(target_path)
             return jsonify({'error': 'zip 中未找到 HTML 文件'}), 400
 
-        # 确保 app.json 存在
         if not os.path.exists(os.path.join(target_path, 'app.json')):
             import json
             with open(os.path.join(target_path, 'app.json'), 'w', encoding='utf-8') as f:

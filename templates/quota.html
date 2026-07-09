@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>配额状态</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: #1a0f08;
+            color: #f5e6d3;
+            padding: 20px;
+        }
+        .container { max-width: 600px; margin: 0 auto; }
+        .card {
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            margin-bottom: 16px;
+        }
+        .card h3 { color: #d0c0b0; font-size: 14px; margin-bottom: 8px; font-weight: 600; }
+        .card .value { font-size: 20px; font-weight: 700; color: #f5e6d3; }
+        .card .sub { color: #a09080; font-size: 13px; margin-top: 4px; }
+        .badge {
+            display: inline-block;
+            padding: 2px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-free { background: rgba(76, 175, 80, 0.15); color: #66bb6a; }
+        .badge-pro { background: rgba(200, 152, 58, 0.15); color: #c8983a; }
+        .badge-trial { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+        .badge-none { background: rgba(224, 112, 64, 0.15); color: #e07040; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .btn {
+            display: inline-block;
+            padding: 8px 20px;
+            background: #c8983a;
+            color: #1a0f08;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: opacity 0.2s;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn-secondary { background: transparent; color: #a09080; border: 1px solid rgba(255, 255, 255, 0.08); }
+        .btn-secondary:hover { background: rgba(255, 255, 255, 0.04); }
+        .actions { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <h3><i class="fas fa-crown"></i> 授权类型</h3>
+        <div class="value" id="licenseType">加载中...</div>
+    </div>
+    <div class="grid">
+        <div class="card">
+            <h3><i class="fas fa-cube"></i> 已托管应用</h3>
+            <div class="value" id="usedApps">-</div>
+        </div>
+        <div class="card">
+            <h3><i class="fas fa-tachometer-alt"></i> 可用配额</h3>
+            <div class="value" id="remaining">-</div>
+            <div class="sub" id="maxAppsInfo"></div>
+        </div>
+    </div>
+    <div class="card">
+        <h3><i class="fas fa-calendar-alt"></i> 有效期</h3>
+        <div class="value" id="expiresAt">-</div>
+    </div>
+    <div class="card">
+        <h3><i class="fas fa-list"></i> 功能列表</h3>
+        <div class="value" id="features" style="font-size:16px;">-</div>
+    </div>
+    <div class="actions">
+        <a href="/api/v1/license/activate-page" class="btn"><i class="fas fa-key"></i> 更换激活码</a>
+        <a href="https://starsea-os.com/subscribe-loader" class="btn btn-secondary"><i class="fas fa-arrow-up"></i> 升级专业版</a>
+        <a href="/" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> 返回应用列表</a>
+    </div>
+</div>
+<script>
+    function formatDate(iso) {
+        if (!iso) return '永久';
+        try { const d = new Date(iso); return d.toLocaleDateString('zh-CN') + ' ' + d.toLocaleTimeString('zh-CN'); }
+        catch { return iso; }
+    }
+    function getBadge(type) {
+        const map = {
+            'free': '<span class="badge badge-free">免费版</span>',
+            'pro': '<span class="badge badge-pro">专业版</span>',
+            'trial': '<span class="badge badge-trial">试用版</span>',
+            'none': '<span class="badge badge-none">未激活</span>'
+        };
+        return map[type] || map['none'];
+    }
+    fetch('/api/v1/license/status')
+        .then(r => r.json())
+        .then(res => {
+            if (res.code === 0) {
+                const data = res.data;
+                document.getElementById('licenseType').innerHTML = getBadge(data.license_type || 'none');
+                document.getElementById('usedApps').textContent = data.used_apps || 0;
+                const maxApps = data.max_apps;
+                if (maxApps === null || maxApps === undefined) {
+                    document.getElementById('remaining').textContent = '∞';
+                    document.getElementById('maxAppsInfo').textContent = '专业版，无限应用';
+                } else {
+                    document.getElementById('remaining').textContent = data.remaining || 0;
+                    document.getElementById('maxAppsInfo').textContent = '上限 ' + maxApps + ' 个应用';
+                }
+                document.getElementById('expiresAt').textContent = formatDate(data.expires_at);
+                document.getElementById('features').textContent = (data.features || []).join('、') || '无';
+            }
+        })
+        .catch(() => {
+            document.querySelectorAll('.value').forEach(el => el.textContent = '加载失败');
+        });
+</script>
+</body>
+</html>

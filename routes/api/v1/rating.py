@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+# rating.py
+# 作者: 鸿渚 | 蓝域星河
+# 版权: © 2026 鸿渚 - 蓝域星河. All rights reserved.
+
 from flask import Blueprint, request, jsonify
 from models import load_apps_config, save_apps_config
 import json
@@ -20,7 +25,6 @@ def save_ratings(ratings):
 
 @rating_bp.route('/<app_id>', methods=['GET'])
 def get_rating(app_id):
-    """获取应用评分"""
     ratings = load_ratings()
     app_rating = ratings.get(app_id, {'total': 0, 'count': 0, 'users': {}})
     avg = app_rating['total'] / app_rating['count'] if app_rating['count'] > 0 else 0
@@ -39,7 +43,6 @@ def get_rating(app_id):
 
 @rating_bp.route('/<app_id>', methods=['POST'])
 def set_rating(app_id):
-    """提交评分（1-5星）"""
     data = request.json
     score = data.get('score')
     user = data.get('user', 'anonymous')
@@ -51,7 +54,6 @@ def set_rating(app_id):
     if app_id not in ratings:
         ratings[app_id] = {'total': 0, 'count': 0, 'users': {}}
 
-    # 如果用户已评分，减去旧分数
     if user in ratings[app_id]['users']:
         old_score = ratings[app_id]['users'][user]
         ratings[app_id]['total'] -= old_score

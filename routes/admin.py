@@ -1,9 +1,14 @@
+#!/usr/bin/env python3
+# admin.py
+# 作者: 鸿渚 | 蓝域星河
+# 版权: © 2026 鸿渚 - 蓝域星河. All rights reserved.
+
 from flask import Blueprint, render_template_string, request, session, redirect, jsonify
 from functools import wraps
 from models import scan_apps, load_favorites, load_notes, save_notes, load_apps_config, save_apps_config, load_framework_config, load_users, save_users
 from utils import get_access_logs, get_trend_data
 from config import DATA_DIR, CONFIG_PATH, APP_CONFIG_PATH, LOG_PATH, ADMIN_CONFIG_PATH, FAVORITES_PATH, NOTE_PATH
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 import os
 import json
 from datetime import datetime
@@ -151,9 +156,6 @@ def admin_dashboard():
         audit_logs=audit_logs
     )
 
-# ========================
-# 修改部分：dashboard_html 表格中增加“类型”列
-# ========================
 dashboard_html = '''
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -472,6 +474,7 @@ dashboard_html = '''
             <a href="/admin/versions"><i class="fas fa-code-branch"></i> 版本管理</a>
             <a href="/admin/tags"><i class="fas fa-tags"></i> 标签管理</a>
             <a href="/admin/settings"><i class="fas fa-sliders-h"></i> 设置</a>
+            <a href="/api/v1/license/quota-page"><i class="fas fa-key"></i> 授权状态</a>
             <a href="/admin/change-password"><i class="fas fa-key"></i> 修改密码</a>
             <a href="/admin/users"><i class="fas fa-users"></i> 用户管理</a>
             <a href="/"><i class="fas fa-home"></i> 首页</a>
@@ -527,7 +530,7 @@ dashboard_html = '''
                         <tr>
                             <th style="width:30px;"><input type="checkbox" onclick="selectAll()"></th>
                             <th>应用</th><th>ID</th><th>分类</th><th>版本</th>
-                            <th>类型</th>   <!-- 新增列 -->
+                            <th>类型</th>
                             <th>页面</th><th>状态</th><th>访问</th><th>备注</th><th>操作</th>
                         </tr>
                     </thead>
@@ -591,9 +594,6 @@ def admin_apps():
     notes = load_notes()
     return render_template_string(apps_html, apps=apps, notes=notes)
 
-# ========================
-# 修改部分：apps_html 表格中增加“类型”列
-# ========================
 apps_html = '''
 <!DOCTYPE html>
 <html>
@@ -702,6 +702,7 @@ tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
             <a href="/admin/versions"><i class="fas fa-code-branch"></i> 版本管理</a>
             <a href="/admin/tags"><i class="fas fa-tags"></i> 标签管理</a>
             <a href="/admin/settings"><i class="fas fa-sliders-h"></i> 设置</a>
+            <a href="/api/v1/license/quota-page"><i class="fas fa-key"></i> 授权状态</a>
             <a href="/admin/change-password"><i class="fas fa-key"></i> 修改密码</a>
             <a href="/admin/users"><i class="fas fa-users"></i> 用户管理</a>
             <a href="/"><i class="fas fa-home"></i> 首页</a>
@@ -715,7 +716,7 @@ tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
                 <thead>
                     <tr>
                         <th>名称</th><th>ID</th><th>分类</th><th>版本</th>
-                        <th>类型</th>   <!-- 新增列 -->
+                        <th>类型</th>
                         <th>状态</th><th>操作</th>
                     </tr>
                 </thead>
@@ -753,7 +754,6 @@ logs_html = '''
 <head><meta charset="UTF-8"><title>访问日志</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-/* 与 apps_html 样式基本一致，此处完整包含 */
 :root {
     --bg-primary: #1a0f08;
     --bg-secondary: #2a1f18;
@@ -842,6 +842,7 @@ body { background: var(--bg-secondary); color: var(--text-primary); font-family:
             <a href="/admin/versions"><i class="fas fa-code-branch"></i> 版本管理</a>
             <a href="/admin/tags"><i class="fas fa-tags"></i> 标签管理</a>
             <a href="/admin/settings"><i class="fas fa-sliders-h"></i> 设置</a>
+            <a href="/api/v1/license/quota-page"><i class="fas fa-key"></i> 授权状态</a>
             <a href="/admin/change-password"><i class="fas fa-key"></i> 修改密码</a>
             <a href="/admin/users"><i class="fas fa-users"></i> 用户管理</a>
             <a href="/"><i class="fas fa-home"></i> 首页</a>
@@ -972,6 +973,7 @@ body { background: var(--bg-secondary); color: var(--text-primary); font-family:
             <a href="/admin/versions"><i class="fas fa-code-branch"></i> 版本管理</a>
             <a href="/admin/tags"><i class="fas fa-tags"></i> 标签管理</a>
             <a href="/admin/settings" class="active"><i class="fas fa-sliders-h"></i> 设置</a>
+            <a href="/api/v1/license/quota-page"><i class="fas fa-key"></i> 授权状态</a>
             <a href="/admin/change-password"><i class="fas fa-key"></i> 修改密码</a>
             <a href="/admin/users"><i class="fas fa-users"></i> 用户管理</a>
             <a href="/"><i class="fas fa-home"></i> 首页</a>
@@ -992,7 +994,7 @@ body { background: var(--bg-secondary); color: var(--text-primary); font-family:
                 <br><i class="fas fa-info-circle"></i> 日志文件：{{ log_path }}
                 <br><i class="fas fa-info-circle"></i> 密码存储在：{{ admin_config_path }}
                 <br><i class="fas fa-info-circle"></i> 收藏存储在：{{ favorites_path }}
-                <br><i class="fas fa-info-circle"></i> 可在“修改密码”页面更改密码
+                <br><i class="fas fa-info-circle"></i> 可在"修改密码"页面更改密码
             </div>
         </div>
         <a href="/admin/dashboard" class="back-link"><i class="fas fa-arrow-left"></i> 返回总览</a>
@@ -1024,6 +1026,7 @@ def admin_change_password():
         else:
             from werkzeug.security import generate_password_hash
             users[current_user]['password_hash'] = generate_password_hash(new)
+            users[current_user]['password_changed'] = True
             save_users(users)
             success = '密码修改成功'
     return render_template_string(change_pw_html, error=error, success=success)
@@ -1128,6 +1131,7 @@ body { background: var(--bg-secondary); color: var(--text-primary); font-family:
             <a href="/admin/versions"><i class="fas fa-code-branch"></i> 版本管理</a>
             <a href="/admin/tags"><i class="fas fa-tags"></i> 标签管理</a>
             <a href="/admin/settings"><i class="fas fa-sliders-h"></i> 设置</a>
+            <a href="/api/v1/license/quota-page"><i class="fas fa-key"></i> 授权状态</a>
             <a href="/admin/change-password" class="active"><i class="fas fa-key"></i> 修改密码</a>
             <a href="/admin/users"><i class="fas fa-users"></i> 用户管理</a>
             <a href="/"><i class="fas fa-home"></i> 首页</a>
@@ -1262,7 +1266,7 @@ def delete_user(username):
     save_users(users)
     return redirect('/admin/users')
 
-# ---------- 新增：审计日志 ----------
+# ---------- 审计日志 ----------
 @admin_bp.route('/audit')
 @admin_required
 def admin_audit():
@@ -1373,6 +1377,7 @@ body { background: var(--bg-secondary); color: var(--text-primary); font-family:
             <a href="/admin/versions"><i class="fas fa-code-branch"></i> 版本管理</a>
             <a href="/admin/tags"><i class="fas fa-tags"></i> 标签管理</a>
             <a href="/admin/settings"><i class="fas fa-sliders-h"></i> 设置</a>
+            <a href="/api/v1/license/quota-page"><i class="fas fa-key"></i> 授权状态</a>
             <a href="/admin/change-password"><i class="fas fa-key"></i> 修改密码</a>
             <a href="/admin/users"><i class="fas fa-users"></i> 用户管理</a>
             <a href="/"><i class="fas fa-home"></i> 首页</a>
@@ -1396,7 +1401,7 @@ body { background: var(--bg-secondary); color: var(--text-primary); font-family:
 </html>
 '''
 
-# ---------- 新增：健康检查 ----------
+# ---------- 健康检查 ----------
 @admin_bp.route('/health')
 @admin_required
 def admin_health():
@@ -1414,7 +1419,6 @@ health_html = '''
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-/* 与 audit_html 样式完全相同，为节省篇幅此处不重复，实际部署时应完整复制，但此回答中为完整起见，重复包含 */
 :root {
     --bg-primary: #1a0f08;
     --bg-secondary: #2a1f18;
@@ -1523,6 +1527,7 @@ tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
             <a href="/admin/versions"><i class="fas fa-code-branch"></i> 版本管理</a>
             <a href="/admin/tags"><i class="fas fa-tags"></i> 标签管理</a>
             <a href="/admin/settings"><i class="fas fa-sliders-h"></i> 设置</a>
+            <a href="/api/v1/license/quota-page"><i class="fas fa-key"></i> 授权状态</a>
             <a href="/admin/change-password"><i class="fas fa-key"></i> 修改密码</a>
             <a href="/admin/users"><i class="fas fa-users"></i> 用户管理</a>
             <a href="/"><i class="fas fa-home"></i> 首页</a>
@@ -1545,7 +1550,7 @@ tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
                         <td>{{ info.last_check }}</td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="4" class="placeholder-text">暂无健康数据，请点击“刷新所有”</td></tr>
+                    <tr><td colspan="4" class="placeholder-text">暂无健康数据，请点击"刷新所有"</td></tr>
                     {% endfor %}
                     </tbody>
                 </table>
@@ -1556,7 +1561,7 @@ tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
 </html>
 '''
 
-# ---------- 新增：版本管理 ----------
+# ---------- 版本管理 ----------
 @admin_bp.route('/versions')
 @admin_required
 def admin_versions():
@@ -1585,7 +1590,6 @@ versions_html = '''
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-/* 与 health_html 样式完全相同，此处完整包含 */
 :root {
     --bg-primary: #1a0f08;
     --bg-secondary: #2a1f18;
@@ -1707,6 +1711,7 @@ tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
             <a href="/admin/versions" class="active"><i class="fas fa-code-branch"></i> 版本管理</a>
             <a href="/admin/tags"><i class="fas fa-tags"></i> 标签管理</a>
             <a href="/admin/settings"><i class="fas fa-sliders-h"></i> 设置</a>
+            <a href="/api/v1/license/quota-page"><i class="fas fa-key"></i> 授权状态</a>
             <a href="/admin/change-password"><i class="fas fa-key"></i> 修改密码</a>
             <a href="/admin/users"><i class="fas fa-users"></i> 用户管理</a>
             <a href="/"><i class="fas fa-home"></i> 首页</a>
@@ -1742,7 +1747,7 @@ tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
 </html>
 '''
 
-# ---------- 新增：标签管理 ----------
+# ---------- 标签管理 ----------
 @admin_bp.route('/tags')
 @admin_required
 def admin_tags():
@@ -1760,7 +1765,6 @@ tags_html = '''
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-/* 与 versions_html 样式完全相同，此处完整包含 */
 :root {
     --bg-primary: #1a0f08;
     --bg-secondary: #2a1f18;
@@ -1890,6 +1894,7 @@ tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
             <a href="/admin/versions"><i class="fas fa-code-branch"></i> 版本管理</a>
             <a href="/admin/tags" class="active"><i class="fas fa-tags"></i> 标签管理</a>
             <a href="/admin/settings"><i class="fas fa-sliders-h"></i> 设置</a>
+            <a href="/api/v1/license/quota-page"><i class="fas fa-key"></i> 授权状态</a>
             <a href="/admin/change-password"><i class="fas fa-key"></i> 修改密码</a>
             <a href="/admin/users"><i class="fas fa-users"></i> 用户管理</a>
             <a href="/"><i class="fas fa-home"></i> 首页</a>

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes, viewport-fit=cover" />
@@ -115,7 +115,7 @@
             transition:all 0.15s ease;
             color:var(--text-secondary);
             position:relative;
-            overflow:visible;   /* 允许预览图溢出 */
+            overflow:visible;
         }
         .app-card:active { transform:scale(0.94); background:rgba(255,255,255,0.10); border-color:var(--border-light); }
         @media (hover: hover) { .app-card:hover { background:rgba(255,255,255,0.08); border-color:var(--border-light); transform:translateY(-2px); z-index:100; } }
@@ -155,7 +155,7 @@
             z-index: 999;
             min-width: 200px;
             min-height: 150px;
-            pointer-events: none;   /* 让点击穿透 */
+            pointer-events: none;
         }
         .screenshot-preview img {
             max-width: 100%;
@@ -419,6 +419,24 @@
                         {% if current_user %}登出{% else %}登录 / 注册{% endif %}
                     </button>
                 </div>
+
+                <!-- ===== 授权状态显示（新增） ===== -->
+                <div class="top-info" id="license-info">
+                    <i class="fas fa-key" style="color:var(--accent-primary);"></i>
+                    <span id="license-status">
+                        {% if license.valid %}
+                            {{ license.license_type|upper }} ({{ license.used_apps }}/{{ license.max_apps or '∞' }})
+                        {% else %}
+                            <span style="color:#e07040;">未激活</span>
+                        {% endif %}
+                    </span>
+                    {% if not license.valid %}
+                    <button class="action-tag" onclick="location.href='/api/v1/license/activate-page'" style="background:#e07040;color:#fff;">激活</button>
+                    {% elif license.license_type == 'free' %}
+                    <button class="action-tag" onclick="location.href='/api/v1/license/upgrade-page'">升级</button>
+                    {% endif %}
+                </div>
+
                 <div class="top-info" id="status-display" role="button" tabindex="0" aria-label="状态信息">
                     <i class="fas fa-circle" id="status-icon" style="font-size:10px; color:var(--accent-secondary);" aria-hidden="true"></i>
                     <span id="status-text">就绪</span>
@@ -460,8 +478,8 @@
                                 <div class="avg-rating">⭐ {{ app.avg_rating }} ({{ app.rating_count }}人) · 👁 {{ app.access_count }}</div>
                                 <!-- 截图预览 -->
                                 <div class="screenshot-preview">
-                                    <img src="/api/v1/screenshot/{{ app.id }}" 
-                                         alt="截图" 
+                                    <img src="/api/v1/screenshot/{{ app.id }}"
+                                         alt="截图"
                                          loading="lazy"
                                          onerror="this.style.display='none'; this.parentElement.querySelector('.screenshot-fallback').style.display='flex';">
                                     <div class="screenshot-fallback">
@@ -540,15 +558,18 @@
         <div id="toast" role="alert" aria-live="polite"></div>
     </div>
 </div>
+
 <script>
 (function() {
     'use strict';
 
     // ==========================
-    // 全局变量（使用 Jinja2 渲染）
+    // 全局变量
     // ==========================
     const CURRENT_USER = {{ current_user|tojson }};
     const CURRENT_ROLE = {{ current_role|tojson }};
+    const STORAGE_KEY_TAB = 'starsea_last_tab';
+    const STORAGE_KEY_LOADED = 'starsea_loaded_flag';
 
     // ==========================
     // DOM 引用
@@ -630,10 +651,45 @@
     function debounce(fn, delay) { var timer; return function() { clearTimeout(timer); timer = setTimeout(fn, delay); }; }
 
     // ==========================
+    // Tab 状态管理（记忆上次打开的 tab）
+    // ==========================
+    function getLastTab() {
+        try {
+            var tab = localStorage.getItem(STORAGE_KEY_TAB);
+            if (tab && DOM.panels[tab]) return tab;
+        } catch (e) {}
+        return 'home';
+    }
+
+    function setLastTab(tab) {
+        try {
+            localStorage.setItem(STORAGE_KEY_TAB, tab);
+        } catch (e) {}
+    }
+
+    // ==========================
+    // 加载动画控制（首次显示，后续跳过）
+    // ==========================
+    function shouldShowLoading() {
+        try {
+            if (sessionStorage.getItem(STORAGE_KEY_LOADED) === 'true') {
+                return false;
+            }
+            if (window.allQuestions && window.allQuestions.length > 0) {
+                sessionStorage.setItem(STORAGE_KEY_LOADED, 'true');
+                return false;
+            }
+            return true;
+        } catch (e) {
+            return true;
+        }
+    }
+
+    // ==========================
     // 数据加载
     // ==========================
     function loadDashboard() {
-        fetch('/api/v1/apps/')
+        return fetch('/api/v1/apps/')
             .then(r => r.json())
             .then(apps => {
                 var count = apps.length;
@@ -659,13 +715,17 @@
                         });
                     }
                 });
+                return apps;
             })
-            .catch(() => showToast('加载应用数据失败'));
+            .catch(function(err) {
+                showToast('加载应用数据失败');
+                throw err;
+            });
     }
 
     function loadExplore() {
         var url = CURRENT_USER ? '/api/v1/recommend/for/' + encodeURIComponent(CURRENT_USER) : '/api/v1/ranking/top/access';
-        fetch(url)
+        return fetch(url)
             .then(r => r.json())
             .then(data => {
                 if (!data || data.length === 0) {
@@ -683,11 +743,11 @@
                 });
                 DOM.exploreGrid.innerHTML = html;
             })
-            .catch(() => showToast('加载推荐失败'));
+            .catch(function() { showToast('加载推荐失败'); });
     }
 
     function loadProfile() {
-        fetch('/api/v1/apps/')
+        return fetch('/api/v1/apps/')
             .then(r => r.json())
             .then(apps => {
                 var total = apps.length;
@@ -707,7 +767,7 @@
                 html += '<span class="action-tag" onclick="location.reload()"><i class="fas fa-sync"></i>刷新</span></div>';
                 DOM.profileContent.innerHTML = html;
             })
-            .catch(() => showToast('加载用户信息失败'));
+            .catch(function() { showToast('加载用户信息失败'); });
     }
 
     // ==========================
@@ -816,26 +876,45 @@
     }
 
     // ==========================
-    // 交互函数
+    // Tab 切换（核心）
     // ==========================
-    function switchTab(tabId) {
-        for (var key in DOM.panels) DOM.panels[key].classList.add('hidden');
-        if (DOM.panels[tabId]) DOM.panels[tabId].classList.remove('hidden');
+    function switchTab(tabId, skipSave) {
+        for (var key in DOM.panels) {
+            if (DOM.panels[key]) {
+                DOM.panels[key].classList.add('hidden');
+            }
+        }
+        if (DOM.panels[tabId]) {
+            DOM.panels[tabId].classList.remove('hidden');
+        }
         currentTab = tabId;
+
         DOM.toolBtns.forEach(function(btn) {
             btn.classList.remove('active');
             btn.setAttribute('aria-selected', 'false');
-            if (btn.dataset.tool === tabId) { btn.classList.add('active');
-                btn.setAttribute('aria-selected', 'true'); }
+            if (btn.dataset.tool === tabId) {
+                btn.classList.add('active');
+                btn.setAttribute('aria-selected', 'true');
+            }
         });
+
         closeAllPanels();
+
         var tabNames = { home: '首页', explore: '探索', profile: '我的' };
         DOM.statusText.textContent = tabNames[tabId] || '就绪';
         DOM.statusIcon.className = 'fas fa-circle';
+
         if (tabId === 'explore') loadExplore();
         if (tabId === 'profile') loadProfile();
+
+        if (!skipSave) {
+            setLastTab(tabId);
+        }
     }
 
+    // ==========================
+    // 面板切换（分类/标签）
+    // ==========================
     function togglePanel(type) {
         if (type === 'inv') {
             if (isInvOpen) { closeAllPanels('已关闭分类'); return; }
@@ -1076,7 +1155,7 @@
         showToast('已关闭设置'); }
 
     // ==========================
-    // 启动加载动画
+    // 启动加载动画（优化版）
     // ==========================
     function startLoading() {
         var progress = 0;
@@ -1094,7 +1173,9 @@
             DOM.progressFill.style.width = progress + '%';
             DOM.progressFill.setAttribute('aria-valuenow', Math.floor(progress));
             DOM.progressText.textContent = Math.floor(progress) + '%';
-            if (progress < 100) { requestAnimationFrame(step); } else {
+            if (progress < 100) {
+                requestAnimationFrame(step);
+            } else {
                 DOM.progressFill.style.width = '100%';
                 DOM.progressFill.setAttribute('aria-valuenow', 100);
                 DOM.progressText.textContent = '100%';
@@ -1103,15 +1184,22 @@
                     loadExplore(),
                     loadProfile()
                 ]).then(function() {
+                    try {
+                        sessionStorage.setItem(STORAGE_KEY_LOADED, 'true');
+                    } catch (e) {}
                     setTimeout(function() {
                         DOM.loadingScreen.classList.add('hidden');
                         DOM.uiStage.classList.add('visible');
                         showToast('加载完成', 1800);
+                        var lastTab = getLastTab();
+                        switchTab(lastTab, true);
                     }, 300);
                 }).catch(function() {
                     setTimeout(function() {
                         DOM.loadingScreen.classList.add('hidden');
                         DOM.uiStage.classList.add('visible');
+                        var lastTab = getLastTab();
+                        switchTab(lastTab, true);
                     }, 300);
                 });
             }
@@ -1120,13 +1208,34 @@
     }
 
     // ==========================
+    // 快速启动（跳过动画，直接显示内容）
+    // ==========================
+    function quickStart() {
+        DOM.loadingScreen.classList.add('hidden');
+        DOM.uiStage.classList.add('visible');
+        loadDashboard();
+        loadExplore();
+        loadProfile();
+        var lastTab = getLastTab();
+        switchTab(lastTab, true);
+        showToast('已恢复', 1200);
+    }
+
+    // ==========================
     // 事件绑定
     // ==========================
     DOM.toolBtns.forEach(function(btn) {
-        btn.addEventListener('click', function(e) { e.stopPropagation(); var tab = this.dataset.tool; if (tab)
-                switchTab(tab); });
-        btn.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault();
-                this.click(); } });
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var tab = this.dataset.tool;
+            if (tab) switchTab(tab);
+        });
+        btn.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                this.click();
+            }
+        });
     });
 
     DOM.btnBag.addEventListener('click', function(e) { e.stopPropagation();
@@ -1237,12 +1346,18 @@
     });
 
     // ==========================
-    // 启动
+    // 启动逻辑（优化版）
     // ==========================
     loadPreferences();
     window.CURRENT_USER = CURRENT_USER;
-    setTimeout(startLoading, 300);
-    console.log('[UI] 完整修复版已启动（卡片点击、预览图遮挡已修复）');
+
+    if (shouldShowLoading()) {
+        setTimeout(startLoading, 300);
+    } else {
+        quickStart();
+    }
+
+    console.log('[UI] 面板体验优化已启用（记忆Tab + 智能加载动画）');
 })();
 </script>
 </body>
